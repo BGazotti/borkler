@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "borkler:steam_source",
+      "required": false
+    },
+    {
+      "id": "borkler:steam_flowing",
+      "required": false
+    }
+  ]
+}

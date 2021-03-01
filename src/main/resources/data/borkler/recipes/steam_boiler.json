@@ -1,0 +1,37 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern":
+    [
+        "igi",
+        "sfs",
+        "ici"
+    ],
+    "key":
+    {
+        "i":
+        {
+            "tag": "forge:ingots/iron"
+        },
+        "s":
+        {
+            "tag": "forge:cobblestone"
+        },
+        "g":
+        {
+        	"tag": "forge:glass"
+        },
+        "f":
+        {
+        	"item": "minecraft:furnace"
+        },
+        "c":
+        {
+        	"item": "minecraft:cauldron"
+        }
+    },
+    "result":
+    {
+        "item": "borkler:steam_boiler",
+        "count": 1
+    }
+}
