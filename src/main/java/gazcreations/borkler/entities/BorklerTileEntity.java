@@ -1,6 +1,9 @@
 package gazcreations.borkler.entities;
 
+import gazcreations.borkler.Borkler;
 import gazcreations.borkler.Index;
+import gazcreations.borkler.container.BorklerContainer;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.fluid.Fluid;
@@ -14,17 +17,25 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.item.crafting.RecipeItemHelper;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.tileentity.AbstractFurnaceTileEntity;
+import net.minecraft.tileentity.FurnaceTileEntity;
 import net.minecraft.tileentity.ITickableTileEntity;
+import net.minecraft.tileentity.LockableLootTileEntity;
 import net.minecraft.tileentity.LockableTileEntity;
-import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.Direction;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
+import net.minecraftforge.registries.ForgeRegistries;
 
 /**
  * The Borkler Tile Entity. The heart of this mod, if you will.
@@ -71,21 +82,32 @@ public class BorklerTileEntity extends LockableTileEntity implements ISidedInven
 	 */
 	private boolean isActive;
 
+	private LazyOptional<?> cachedItemHandlerCapability;
+	private LazyOptional<?> cachedFluidHandlerCapability;
+
 	/**
 	 * A constructor. Populates the Borkler's tanks with empty FluidStacks,
 	 * initializes its inventory and sets burnTime to zero.
 	 * 
-	 * @param typeIn
 	 */
-	protected BorklerTileEntity(TileEntityType<?> typeIn) {
-		super(typeIn);
+	public BorklerTileEntity() {
+		super(Index.BORKLER_TE_TYPE);
 		this.water = new FluidStack(Fluids.WATER, 0);
 		this.fuel = new FluidStack(Fluids.EMPTY, 0);
-		this.steam = new FluidStack(Index.Fluids.STEAM, 0);
+		this.steam = new FluidStack(Index.Fluids.STEAMSOURCE, 0);
 		this.solidFuel = new Inventory(ItemStack.EMPTY);
 		this.burnTime = 0;
 		this.isActive = false;
+	}
 
+	/**
+	 * Pretty self-explanatory. Active means that this boiler is currently burning
+	 * something.
+	 * 
+	 * @return
+	 */
+	public boolean isActive() {
+		return isActive;
 	}
 
 	/**
@@ -110,6 +132,14 @@ public class BorklerTileEntity extends LockableTileEntity implements ISidedInven
 	public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
 		if (stack.isEmpty())
 			return ItemStack.EMPTY;
+		if (isActuallyALiquid(stack)) {
+			// TODO this looks like it will fuck shit up.
+			ItemStack copy = ItemHandlerHelper.copyStackWithSize(stack, stack.getCount());
+			IFluidHandler o = (IFluidHandler) copy.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY);
+			fill(o.drain(o.getFluidInTank(0).getAmount(), FluidAction.EXECUTE), FluidAction.EXECUTE);
+			return copy;
+
+		}
 		if (!isItemValid(slot, stack))
 			return stack;
 		ItemStack existing = this.solidFuel.getStackInSlot(0);
@@ -139,10 +169,12 @@ public class BorklerTileEntity extends LockableTileEntity implements ISidedInven
 		return reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, stack.getCount() - limit) : ItemStack.EMPTY;
 	}
 
+	/**
+	 * @return An empty item stack.
+	 */
 	@Override
 	public ItemStack extractItem(int slot, int amount, boolean simulate) {
-		// TODO Auto-generated method stub
-		return null;
+		return ItemStack.EMPTY;
 	}
 
 	/**
@@ -179,7 +211,6 @@ public class BorklerTileEntity extends LockableTileEntity implements ISidedInven
 	@Override
 	public FluidStack getFluidInTank(int tank) {
 		switch (tank) {
-		// TODO check empty
 		case 0:
 			return new FluidStack(this.water, this.water.getAmount());
 		case 1:
@@ -220,7 +251,9 @@ public class BorklerTileEntity extends LockableTileEntity implements ISidedInven
 			// TODO add valid fuel types
 			return stack.getFluid().isIn(FluidTags.LAVA) /* || acceptedFuels.contains(fluid) */;
 		case 2:
-			return stack.getFluid().isIn(FluidTags.getCollection().get(new ResourceLocation("forge:fluids/steam")));
+			return stack.getFluid().isEquivalentTo(Index.Fluids.STEAM)
+					|| stack.getFluid().isEquivalentTo(Index.Fluids.STEAMSOURCE)
+					|| stack.getFluid().isIn(FluidTags.getCollection().get(new ResourceLocation("forge:fluids/steam")));
 		}
 		return false;
 	}
@@ -243,6 +276,21 @@ public class BorklerTileEntity extends LockableTileEntity implements ISidedInven
 			return 2;
 		}
 		return -1;
+	}
+
+	/**
+	 * For minecraft reasons, items such as the lava bucket will be treated as solid
+	 * fuel, when, in fact, they're liquid. This function will redirect lava from
+	 * buckets to an actual tank where they will be stored and burned on-demand.
+	 * 
+	 * @param stack
+	 * @return true if this ItemStack has the FluidHandler Capability.
+	 */
+	private boolean isActuallyALiquid(ItemStack stack) {
+		if (stack.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY) == null) {
+			return false;
+		} else
+			return true;
 	}
 
 	private FluidStack getTank(byte index) {
@@ -349,15 +397,13 @@ public class BorklerTileEntity extends LockableTileEntity implements ISidedInven
 
 	@Override
 	protected ITextComponent getDefaultName() {
-		// TODO Auto-generated method stub
-		return ITextComponent.getTextComponentOrEmpty("Steam Boiler");
+		return new TranslationTextComponent("container.steam_boiler");
 	}
 
 	@Override
 	protected Container createMenu(int id, PlayerInventory player) {
-		// TODO Auto-generated method stub
-		return null;
-	}
+		
+return new BorklerContainer(null, id, player, player);	}
 
 	/**
 	 * Credits to the folks at @TeamCofh for helping me make sense of this method.
@@ -406,6 +452,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ISidedInven
 	@Override
 	public void clear() {
 		solidFuel.clear();
+		markDirty();
 	}
 
 	/**
@@ -417,18 +464,73 @@ public class BorklerTileEntity extends LockableTileEntity implements ISidedInven
 	 */
 	@Override
 	public void tick() {
-		// TODO Auto-generated method stub
+		// the boiler will refuse to operate if it has no water or the steam tank is
+		// full.
+		if (water.isEmpty() || steam.getAmount() == getTankCapacity(2)) {
+			isActive = false;
+			markDirty();
+			return;
+		}
 		if (burnTime > 0) {
 			// this means that the boiler is powered, and will attempt to turn water into
 			// steam.
-			if (water.isEmpty() || steam.getAmount() == getTankCapacity(2)) {
-				// either there's no water or the steam tank is full. Boiler will not operate.
-				// this will not use up fuel burn time, because I'm too nice.
+
+			// so, we have water, the boiler is active, and the steam tank is not full. It's
+			// boiling time, boyos.
+			boil();
+
+		} else {
+			// OK, so we're not currently burning fuel. Is there anything to burn, though?
+			if (solidFuel.isEmpty() && fuel.isEmpty()) {
+				// there's no liquid or solid fuel present. Boiler will be turned off.
 				isActive = false;
+				markDirty();
 				return;
 			}
+			if (!solidFuel.isEmpty()) {
+				// OK, so there's solid fuel in the boiler. We'll try to burn this.
+				// Fuel has been checked for burnability before being placed in the inventory.
+				// This will remove one piece of fuel from the inventory and power the boiler
+				// for its burnTime ticks.
+				burnTime += decrStackSize(0, 1).getBurnTime();
+				Borkler.LOGGER.debug("Burn time increased: now " + burnTime);
+				isActive = true;
+				boil();
+				return;
+			}
+			if (!fuel.isEmpty()) {
+				// ok, there is liquid fuel in the boiler. We'll try to burn this.
+				if (fuel.getFluid().isEquivalentTo(Fluids.LAVA)) {
+					// Determining burn time for lava is tricky. Let's use the lava bucket, or 1000
+					// mB, as reference.
+					int bitOFuel = Math.min(fuel.getAmount(), 5);
+					int additionalBurnTime = bitOFuel / new ItemStack(() -> Items.LAVA_BUCKET, 1).getBurnTime();
+					burnTime += additionalBurnTime;
+					Borkler.LOGGER.debug("Burn time increased: now " + burnTime);
+					fuel.shrink(bitOFuel);
+					isActive = true;
+					boil();
+					markDirty();
+					return;
+				}
+			}
+
 		}
 
+	}
+
+	/**
+	 * This function tries to drain 100 mB of the water tank and add 100 mB of Steam
+	 * to the output tank. It is run on every tick while the boiler is active, and
+	 * decreases burnTime by one tick. <br>
+	 * If less than 100 mB of water is present, it will boil whatever's left. <br>
+	 * Any excess steam is discarded.
+	 */
+	private final void boil() {
+		int amount = Math.min(this.water.getAmount(), 100);
+		this.water.shrink(amount);
+		this.fill(new FluidStack(Index.Fluids.STEAMSOURCE, amount), FluidAction.EXECUTE);
+		burnTime--;
 	}
 
 	@Override
@@ -449,15 +551,21 @@ public class BorklerTileEntity extends LockableTileEntity implements ISidedInven
 
 	}
 
+	/**
+	 * The Boiler is like the Void. Many things go in, only steam gets out.
+	 * 
+	 * @return false
+	 */
 	@Override
 	public boolean canExtractItem(int arg0, ItemStack arg1, Direction arg2) {
-		// TODO Auto-generated method stub
-		return true;
+		return false;
 	}
 
+	/**
+	 * @return {@link BorklerTileEntity.isItemValid}(arg0, arg1, arg2)
+	 */
 	@Override
 	public boolean canInsertItem(int arg0, ItemStack arg1, Direction arg2) {
-		// TODO implement
 		if (!isItemValid(arg0, arg1))
 			return false;
 		return true;
@@ -468,4 +576,51 @@ public class BorklerTileEntity extends LockableTileEntity implements ISidedInven
 		return new int[] { 1 };
 	}
 
+	@Override
+	public CompoundNBT write(CompoundNBT nbt) {
+		CompoundNBT stuff = super.write(nbt);
+		stuff.putInt("steam", this.steam.getAmount());
+		stuff.putInt("water", this.water.getAmount());
+		stuff.putString("fuelType", fuel.getFluid().getRegistryName().getPath());
+		stuff.putInt("fuelAmount", this.fuel.getAmount());
+		stuff.putString("solidFuelType", this.solidFuel.getStackInSlot(0).getItem().getRegistryName().getPath());
+		stuff.putInt("solidFuelAmount", this.solidFuel.getStackInSlot(0).getCount());
+		stuff.putBoolean("isActive", isActive);
+		stuff.putInt("burnTime", this.burnTime);
+		return super.write(stuff);
+	}
+
+	@Override
+	public void read(BlockState state, CompoundNBT nbt) {
+		super.read(state, nbt);
+		steam = new FluidStack(Index.Fluids.STEAMSOURCE, nbt.getInt("steam"));
+		water = new FluidStack(Fluids.WATER, nbt.getInt("water"));
+		fuel = new FluidStack(ForgeRegistries.FLUIDS.getValue(new ResourceLocation(nbt.getString("fuelType"))),
+				nbt.getInt("fuelAmount"));
+		solidFuel = new Inventory(new ItemStack(
+				() -> ForgeRegistries.ITEMS.getValue(new ResourceLocation(nbt.getString("solidFuelType"))),
+				nbt.getInt("solidFuelAmount")));
+		isActive = nbt.getBoolean("isActive");
+		burnTime = nbt.getInt("burnTime");
+		// super.getTileData(); this can be used too, i guess - will find out later
+	}
+
+	public <T> LazyOptional<T> getCapability(Capability<T> cap, @javax.annotation.Nullable Direction side) {
+		if (this.isRemoved())
+			return super.getCapability(cap, side);
+		if (cap == net.minecraftforge.items.CapabilityItemHandler.ITEM_HANDLER_CAPABILITY) {
+			if (cachedItemHandlerCapability == null) {
+				cachedItemHandlerCapability = LazyOptional.of(() -> solidFuel);
+			}
+			if (cachedItemHandlerCapability.isPresent())
+				return cachedItemHandlerCapability.cast();
+		}
+		if (cap == CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY) {
+			if (cachedFluidHandlerCapability == null) {
+				cachedFluidHandlerCapability = LazyOptional.of(() -> steam);
+			}
+			return cachedFluidHandlerCapability.cast();
+		}
+		return super.getCapability(cap, side);
+	}
 }

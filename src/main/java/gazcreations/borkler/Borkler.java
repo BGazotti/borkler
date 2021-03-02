@@ -1,20 +1,26 @@
 package gazcreations.borkler;
 
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import gazcreations.borkler.container.BorklerContainer;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.fluid.Fluid;
+import net.minecraft.inventory.container.ContainerType;
 import net.minecraft.item.Item;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.tags.TagCollectionManager;
+import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.InterModComms;
+import net.minecraftforge.fml.RegistryObject;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -42,7 +48,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 @Mod("borkler")
 public class Borkler {
 	// Directly reference a log4j logger.
-	private static final Logger LOGGER = LogManager.getLogger();
+	public static final Logger LOGGER = LogManager.getLogger();
 
 	/**
 	 * Just a constructor. Nothing to see here, move along.
@@ -63,10 +69,7 @@ public class Borkler {
 
 		// Register ourselves for server and other game events we are interested in
 		MinecraftForge.EVENT_BUS.register(this);
-		ResourceLocation steam = new ResourceLocation("forge", "fluids/steam");
-		FluidTags.createOptional(steam);
-		LOGGER.debug(FluidTags.getAllTags().toString());
-		LOGGER.debug(FluidTags.getCollection().getTagByID(steam).contains(Index.Fluids.STEAMSOURCE));
+
 	}
 
 	/**
@@ -78,11 +81,19 @@ public class Borkler {
 		// some preinit code
 		LOGGER.info("HELLO FROM PREINIT");
 		LOGGER.info("DIRT BLOCK >> {}", Blocks.DIRT.getRegistryName());
+		ResourceLocation steam = new ResourceLocation("forge", "fluids/steam");
+
+		FluidTags.createOptional(steam, Set.of(() -> Index.Fluids.STEAM, () -> Index.Fluids.STEAMSOURCE));
+		LOGGER.fatal(TagCollectionManager.getManager().getBlockTags().get(steam) + "\n"
+				+ TagCollectionManager.getManager().getFluidTags().get(steam) + "\n"
+				+ TagCollectionManager.getManager().getItemTags().get(steam) + "\n");
+		LOGGER.debug(Index.Fluids.STEAMSOURCE.getTags());
 	}
 
 	private void doClientStuff(final FMLClientSetupEvent event) {
 		// do something that can only be done on the client
-		//LOGGER.info("Got game settings {}", event.getMinecraftSupplier().get().gameSettings);
+		// LOGGER.info("Got game settings {}",
+		// event.getMinecraftSupplier().get().gameSettings);
 	}
 
 	private void enqueueIMC(final InterModEnqueueEvent event) {
@@ -111,7 +122,8 @@ public class Borkler {
 	 * <p>
 	 * A class containing methods that are called when Forge starts registering
 	 * stuff. The methods in this class are responsible for registering blocks,
-	 * fluids and items associated with Borkler. Their names are pretty self-explanatory.
+	 * fluids and items associated with Borkler. Their names are pretty
+	 * self-explanatory.
 	 * </p>
 	 * 
 	 * @author gazotti
@@ -135,6 +147,16 @@ public class Borkler {
 		public static void onItemsRegistry(final RegistryEvent.Register<Item> itemRegistryEvent) {
 			LOGGER.info("Registering items!");
 			itemRegistryEvent.getRegistry().registerAll(Index.Items.BORKLERITEM, Index.Items.STEAMITEM);
+		}
+
+		@SubscribeEvent
+		public static void onEntitiesRegistry(final RegistryEvent.Register<TileEntityType<?>> event) {
+			LOGGER.info("Registering TileEntities!");
+			event.getRegistry().register(Index.BORKLER_TE_TYPE);
+		}
+		public static void onContainersRegistry (final RegistryEvent.Register<ContainerType<?>> event) {
+			 RegistryObject<ContainerType<BorklerContainer>> BORKLER_CONTAINER = event.getRegistry().register("iron_chest", () -> new ContainerType<>(IronChestContainer::createIronContainer));
+
 		}
 	}
 }

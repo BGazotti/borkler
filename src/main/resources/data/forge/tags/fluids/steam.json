@@ -1,13 +1,7 @@
 {
   "replace": false,
   "values": [
-    {
-      "id": "borkler:steam_source",
-      "required": false
-    },
-    {
-      "id": "borkler:steam_flowing",
-      "required": false
-    }
+	"borkler:steam_source",
+	"borkler:steam_flowing"
   ]
 }
