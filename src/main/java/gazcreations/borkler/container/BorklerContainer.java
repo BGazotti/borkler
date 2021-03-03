@@ -1,26 +1,28 @@
 package gazcreations.borkler.container;
 
+import gazcreations.borkler.Index;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.container.Container;
-import net.minecraft.inventory.container.ContainerType;
 
 public class BorklerContainer extends Container {
 
 	private IInventory inventory;
 
-	public BorklerContainer(ContainerType<?> type, int id, PlayerInventory playerInv, IInventory inventory) {
-		super(type, id);
+	public BorklerContainer(int id, PlayerInventory playerInv) {
+		this(id, playerInv, new Inventory(1));
+	}
+	
+	public BorklerContainer(int id, PlayerInventory playerInv, IInventory inventory) {
+		super(Index.BORKLER_CONTAINER_TYPE, id);
 		this.inventory = inventory;
-		// TODO Auto-generated constructor stub
 	}
 
 	@Override
 	public boolean canInteractWith(PlayerEntity playerIn) {
-		// TODO Auto-generated method stub
-		return false;
+		return inventory.isUsableByPlayer(playerIn);
 	}
 
 	@Override

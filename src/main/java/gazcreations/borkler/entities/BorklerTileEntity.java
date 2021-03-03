@@ -19,10 +19,7 @@ import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.item.crafting.RecipeItemHelper;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.tags.FluidTags;
-import net.minecraft.tileentity.AbstractFurnaceTileEntity;
-import net.minecraft.tileentity.FurnaceTileEntity;
 import net.minecraft.tileentity.ITickableTileEntity;
-import net.minecraft.tileentity.LockableLootTileEntity;
 import net.minecraft.tileentity.LockableTileEntity;
 import net.minecraft.util.Direction;
 import net.minecraft.util.ResourceLocation;
@@ -402,8 +399,9 @@ public class BorklerTileEntity extends LockableTileEntity implements ISidedInven
 
 	@Override
 	protected Container createMenu(int id, PlayerInventory player) {
-		
-return new BorklerContainer(null, id, player, player);	}
+		// TODO implement server check
+		return new BorklerContainer(id, player, solidFuel);
+	}
 
 	/**
 	 * Credits to the folks at @TeamCofh for helping me make sense of this method.

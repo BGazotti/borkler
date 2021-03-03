@@ -3,13 +3,11 @@ package gazcreations.borkler;
 import gazcreations.borkler.blocks.BorklerBlock;
 import gazcreations.borkler.blocks.Steam;
 import gazcreations.borkler.blocks.SteamBlock;
+import gazcreations.borkler.container.BorklerContainer;
 import gazcreations.borkler.entities.BorklerTileEntity;
 import gazcreations.borkler.items.BorklerItem;
 import gazcreations.borkler.items.SteamItem;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.container.Container;
 import net.minecraft.inventory.container.ContainerType;
-import net.minecraft.inventory.container.ContainerType.IFactory;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraftforge.registries.ObjectHolder;
 
@@ -45,16 +43,12 @@ public abstract class Index {
 		public static final SteamItem STEAMITEM = new SteamItem();
 	}
 
+	@ObjectHolder(value = "borkler:borklertile")
 	public static final TileEntityType<?> BORKLER_TE_TYPE = TileEntityType.Builder
 			.create(BorklerTileEntity::new, Index.Blocks.BORKLERBLOCK).build(null)
 			.setRegistryName("borkler", "borklertile");
 
-	public static final ContainerType<?> BORKLER_CONTAINER_TYPE = new ContainerType(new IFactory<Container>() {
-
-		@Override
-		public Container create(int p_create_1_, PlayerInventory p_create_2_) {
-			// TODO Auto-generated method stub
-			return null;
-		}
-	});
+	@ObjectHolder(value="borkler:borklertile")
+	public static final ContainerType<?> BORKLER_CONTAINER_TYPE = new ContainerType<BorklerContainer>(
+			BorklerContainer::new).setRegistryName("borkler", "borklertile");
 }

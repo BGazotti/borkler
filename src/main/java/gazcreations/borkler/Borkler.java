@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import gazcreations.borkler.container.BorklerContainer;
+import gazcreations.borkler.proxy.ClientProxy;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.fluid.Fluid;
@@ -16,13 +16,14 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.tags.TagCollectionManager;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.InterModComms;
-import net.minecraftforge.fml.RegistryObject;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.InterModEnqueueEvent;
 import net.minecraftforge.fml.event.lifecycle.InterModProcessEvent;
@@ -49,6 +50,8 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 public class Borkler {
 	// Directly reference a log4j logger.
 	public static final Logger LOGGER = LogManager.getLogger();
+	
+	public final IEventBus BUS;
 
 	/**
 	 * Just a constructor. Nothing to see here, move along.
@@ -58,17 +61,18 @@ public class Borkler {
 	 * </p>
 	 */
 	public Borkler() {
+		BUS = FMLJavaModLoadingContext.get().getModEventBus();
 		// Register the setup method for modloading
-		FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
+		BUS.addListener(this::setup);
 		// Register the enqueueIMC method for modloading
-		FMLJavaModLoadingContext.get().getModEventBus().addListener(this::enqueueIMC);
+		BUS.addListener(this::enqueueIMC);
 		// Register the processIMC method for modloading
-		FMLJavaModLoadingContext.get().getModEventBus().addListener(this::processIMC);
+		BUS.addListener(this::processIMC);
 		// Register the doClientStuff method for modloading
-		FMLJavaModLoadingContext.get().getModEventBus().addListener(this::doClientStuff);
-
+		DistExecutor.safeRunWhenOn(Dist.CLIENT, new ClientProxy());
 		// Register ourselves for server and other game events we are interested in
 		MinecraftForge.EVENT_BUS.register(this);
+		
 
 	}
 
@@ -88,12 +92,7 @@ public class Borkler {
 				+ TagCollectionManager.getManager().getFluidTags().get(steam) + "\n"
 				+ TagCollectionManager.getManager().getItemTags().get(steam) + "\n");
 		LOGGER.debug(Index.Fluids.STEAMSOURCE.getTags());
-	}
 
-	private void doClientStuff(final FMLClientSetupEvent event) {
-		// do something that can only be done on the client
-		// LOGGER.info("Got game settings {}",
-		// event.getMinecraftSupplier().get().gameSettings);
 	}
 
 	private void enqueueIMC(final InterModEnqueueEvent event) {
@@ -154,9 +153,11 @@ public class Borkler {
 			LOGGER.info("Registering TileEntities!");
 			event.getRegistry().register(Index.BORKLER_TE_TYPE);
 		}
-		public static void onContainersRegistry (final RegistryEvent.Register<ContainerType<?>> event) {
-			 RegistryObject<ContainerType<BorklerContainer>> BORKLER_CONTAINER = event.getRegistry().register("iron_chest", () -> new ContainerType<>(IronChestContainer::createIronContainer));
 
+		@SubscribeEvent
+		public static void onContainersRegistry(final RegistryEvent.Register<ContainerType<?>> event) {
+			LOGGER.info("Registering ContainerTypes!");
+			event.getRegistry().register(Index.BORKLER_CONTAINER_TYPE);
 		}
 	}
 }

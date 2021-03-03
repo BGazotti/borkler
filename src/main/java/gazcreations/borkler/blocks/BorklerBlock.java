@@ -25,7 +25,7 @@ import net.minecraftforge.common.ToolType;
 public class BorklerBlock extends Block {
 
 	private BorklerTileEntity tileEntity;
-	public static final BooleanProperty ACTIVE = BooleanProperty.create("isactive");
+	public static final BooleanProperty ACTIVE = BooleanProperty.create("active");
 
 	public BorklerBlock() {
 		super(Properties.create(Material.PISTON).hardnessAndResistance(1.8f).sound(SoundType.STONE)

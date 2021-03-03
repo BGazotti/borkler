@@ -1,0 +1,10 @@
+{
+	"variants": {
+		"active=true": {
+			"model": "borkler:block/steam_boiler"
+		},
+		"active=false": {
+			"model": "borkler:block/steam_boiler"
+		}
+	}
+}
