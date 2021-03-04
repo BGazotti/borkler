@@ -1,0 +1,8 @@
+{
+	"parent": "block/cube_all",
+	"textures": {
+		"all": "borkler:block/steam_boiler_front_off",
+		"up": "borkler:block/steam_boiler_top_off",
+		"down": "borkler:block/steam_boiler_bottom"
+	}
+}

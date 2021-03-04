@@ -4,7 +4,7 @@
 			"model": "borkler:block/steam_boiler"
 		},
 		"active=false": {
-			"model": "borkler:block/steam_boiler"
+			"model": "borkler:block/steam_boiler_off"
 		}
 	}
 }

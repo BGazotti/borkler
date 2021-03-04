@@ -1,6 +1,7 @@
 package gazcreations.borkler;
 
-import java.util.Set;
+import java.util.HashSet;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -8,12 +9,12 @@ import org.apache.logging.log4j.Logger;
 
 import gazcreations.borkler.proxy.ClientProxy;
 import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
 import net.minecraft.fluid.Fluid;
 import net.minecraft.inventory.container.ContainerType;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.tags.FluidTags;
-import net.minecraft.tags.TagCollectionManager;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
@@ -83,18 +84,17 @@ public class Borkler {
 	 */
 	private void setup(final FMLCommonSetupEvent event) {
 		// some preinit code
-		LOGGER.info("HELLO FROM PREINIT");
-		LOGGER.info("DIRT BLOCK >> {}", Blocks.DIRT.getRegistryName());
+		LOGGER.fatal((new ItemStack(() -> Items.OAK_SAPLING, 1).getBurnTime()));
+		LOGGER.fatal((new ItemStack(() -> Items.OAK_SAPLING, 5).getBurnTime()));
 		ResourceLocation steam = new ResourceLocation("forge", "fluids/steam");
-
-		FluidTags.createOptional(steam, Set.of(() -> Index.Fluids.STEAM, () -> Index.Fluids.STEAMSOURCE));
-		LOGGER.fatal(TagCollectionManager.getManager().getBlockTags().get(steam) + "\n"
-				+ TagCollectionManager.getManager().getFluidTags().get(steam) + "\n"
-				+ TagCollectionManager.getManager().getItemTags().get(steam) + "\n");
-		LOGGER.debug(Index.Fluids.STEAMSOURCE.getTags());
+		HashSet<Supplier<Fluid>> steamTypes = new HashSet<Supplier<Fluid>>(2);
+		steamTypes.add(() -> Index.Fluids.STEAM);
+		steamTypes.add(() -> Index.Fluids.STEAMSOURCE);
+		FluidTags.createOptional(steam, steamTypes);
 
 	}
 
+	
 	private void enqueueIMC(final InterModEnqueueEvent event) {
 		// some example code to dispatch IMC to another mod
 		InterModComms.sendTo("borkler", "helloworld", () -> {

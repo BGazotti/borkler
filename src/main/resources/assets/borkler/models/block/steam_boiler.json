@@ -2,6 +2,7 @@
 	"parent": "block/cube_all",
 	"textures": {
 		"all": "borkler:block/steam_boiler_front",
+		"particle": "borkler:block/steam_boiler_top",
 		"up": "borkler:block/steam_boiler_top",
 		"down": "borkler:block/steam_boiler_bottom"
 	}
