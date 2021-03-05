@@ -47,7 +47,7 @@ public abstract class Steam extends FlowingFluid {
 		return net.minecraftforge.fluids.FluidAttributes
 				.builder(new ResourceLocation("block/water_still"), new ResourceLocation("block/water_flow"))
 				.overlay(new ResourceLocation("block/water_overlay")).translationKey("block.borkler.steam_source")
-				.color(0xFFE01B12).sound(SoundEvents.ITEM_BUCKET_FILL, SoundEvents.ITEM_BUCKET_EMPTY).density(-5)
+				.color(0xFFD6EBEB).sound(SoundEvents.ITEM_BUCKET_FILL, SoundEvents.ITEM_BUCKET_EMPTY).density(-5)
 				.temperature(373).gaseous().viscosity(500).build(Index.Fluids.STEAMSOURCE);
 	}
 
@@ -169,7 +169,7 @@ public abstract class Steam extends FlowingFluid {
 			return net.minecraftforge.fluids.FluidAttributes
 					.builder(new ResourceLocation("block/water_still"), new ResourceLocation("block/water_flow"))
 					.overlay(new ResourceLocation("block/water_overlay")).translationKey("block.borkler.steam_source")
-					.color(0xFFE01B12).sound(SoundEvents.ITEM_BUCKET_FILL, SoundEvents.ITEM_BUCKET_EMPTY).density(-5)
+					.color(0xFFD6EBEB).sound(SoundEvents.ITEM_BUCKET_FILL, SoundEvents.ITEM_BUCKET_EMPTY).density(-5)
 					.temperature(373).gaseous().viscosity(500).build(Index.Fluids.STEAM);
 		}
 

@@ -12,7 +12,8 @@ import net.minecraft.tileentity.TileEntityType;
 import net.minecraftforge.registries.ObjectHolder;
 
 /**
- * An Index class, containing references to Borkler's blocks, fluids and items.
+ * An Index class, containing static references to Borkler's blocks, fluids, items,
+ * entities, containers, you name it.
  * 
  * @author gazotti
  *
@@ -48,7 +49,7 @@ public abstract class Index {
 			.create(BorklerTileEntity::new, Index.Blocks.BORKLERBLOCK).build(null)
 			.setRegistryName("borkler", "borklertile");
 
-	@ObjectHolder(value="borkler:borklertile")
+	@ObjectHolder(value = "borkler:borklertile")
 	public static final ContainerType<?> BORKLER_CONTAINER_TYPE = new ContainerType<BorklerContainer>(
 			BorklerContainer::new).setRegistryName("borkler", "borklertile");
 }

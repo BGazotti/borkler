@@ -6,9 +6,10 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import gazcreations.borkler.container.BorklerContainer;
 import net.minecraft.client.gui.IHasContainer;
 import net.minecraft.client.gui.screen.inventory.ContainerScreen;
+import net.minecraft.client.renderer.tileentity.ItemStackTileEntityRenderer;
 import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.container.ChestContainer;
-import net.minecraft.inventory.container.ContainerType;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -27,9 +28,7 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 		super(screenContainer, inv, titleIn);
 		// TODO Auto-generated constructor stub
 		this.xSize = 184;
-		// this.width = 100;
-		this.ySize = 70;
-		// this.height = 70;
+		this.ySize = 151;
 		passEvents = false;
 	}
 
@@ -51,9 +50,9 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 	@Override
 	protected void drawGuiContainerBackgroundLayer(MatrixStack matrixStack, float partialTicks, int x, int y) {
 		RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-	    //this.minecraft.getTextureManager().bindTexture(null); //TODO add texture
-
-		blit(matrixStack, (this.width - this.xSize) / 2, (this.height - this.ySize) / 2, 0, 0, this.xSize, this.ySize);
+		this.minecraft.getTextureManager()
+				.bindTexture(new ResourceLocation("borkler", "textures/gui/steam_boiler.png"));
+		blit(matrixStack, (this.width - this.xSize) / 2, (this.height - this.ySize) / 2, 0, 0, 256, 256);
 	}
 
 }

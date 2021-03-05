@@ -24,9 +24,11 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 public class ClientProxy implements Supplier<DistExecutor.SafeRunnable>{
 
 	private void doClientStuff(final FMLCommonSetupEvent evt) {
+		Borkler.LOGGER.info("Registering Screens!");
 		ScreenManager.registerFactory((ContainerType<BorklerContainer>) Index.BORKLER_CONTAINER_TYPE,
 				BorklerScreen::new);
-		Borkler.LOGGER.info("Registering Screens!");
+
+		
 	}
 
 	@Override

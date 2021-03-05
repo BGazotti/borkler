@@ -19,7 +19,7 @@ public class SteamBlock extends FlowingFluidBlock {
 				// TODO Auto-generated method stub
 				return Index.Fluids.STEAMSOURCE;
 			}
-		}, AbstractBlock.Properties.create(Material.WATER, MaterialColor.CRIMSON_NYLIUM).doesNotBlockMovement().hardnessAndResistance(0.0F).noDrops()
+		}, AbstractBlock.Properties.create(Material.WATER, MaterialColor.LIGHT_GRAY).doesNotBlockMovement().hardnessAndResistance(0.0F).noDrops()
 				.setLightLevel(new ToIntFunction<BlockState>() {
 
 					@Override
@@ -27,7 +27,7 @@ public class SteamBlock extends FlowingFluidBlock {
 						// TODO Auto-generated method stub
 						return 7;
 					}
-				}).speedFactor(2.0F));
+				}));
 		this.setRegistryName("borkler", "steam_source");
 	}
 }

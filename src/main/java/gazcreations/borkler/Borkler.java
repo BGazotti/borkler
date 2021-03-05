@@ -2,7 +2,6 @@ package gazcreations.borkler;
 
 import java.util.HashSet;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -12,8 +11,6 @@ import net.minecraft.block.Block;
 import net.minecraft.fluid.Fluid;
 import net.minecraft.inventory.container.ContainerType;
 import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ResourceLocation;
@@ -23,7 +20,6 @@ import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.fml.InterModComms;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.InterModEnqueueEvent;
@@ -51,7 +47,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 public class Borkler {
 	// Directly reference a log4j logger.
 	public static final Logger LOGGER = LogManager.getLogger();
-	
+
 	public final IEventBus BUS;
 
 	/**
@@ -69,23 +65,21 @@ public class Borkler {
 		BUS.addListener(this::enqueueIMC);
 		// Register the processIMC method for modloading
 		BUS.addListener(this::processIMC);
-		// Register the doClientStuff method for modloading
+		// Registers methods for running on the client only
 		DistExecutor.safeRunWhenOn(Dist.CLIENT, new ClientProxy());
 		// Register ourselves for server and other game events we are interested in
 		MinecraftForge.EVENT_BUS.register(this);
-		
 
 	}
 
 	/**
-	 * I suppose this would be where we get our tags and config settings?
+	 * This method sets up some more stuff, such as enforcing the creation of a tag
+	 * for steam.
 	 * 
 	 * @param event
 	 */
 	private void setup(final FMLCommonSetupEvent event) {
 		// some preinit code
-		LOGGER.fatal((new ItemStack(() -> Items.OAK_SAPLING, 1).getBurnTime()));
-		LOGGER.fatal((new ItemStack(() -> Items.OAK_SAPLING, 5).getBurnTime()));
 		ResourceLocation steam = new ResourceLocation("forge", "fluids/steam");
 		HashSet<Supplier<Fluid>> steamTypes = new HashSet<Supplier<Fluid>>(2);
 		steamTypes.add(() -> Index.Fluids.STEAM);
@@ -94,22 +88,21 @@ public class Borkler {
 
 	}
 
-	
 	private void enqueueIMC(final InterModEnqueueEvent event) {
 		// some example code to dispatch IMC to another mod
-		InterModComms.sendTo("borkler", "helloworld", () -> {
-			LOGGER.info("Hello world from the MDK");
-			return "Hello world";
-		});
+		// InterModComms.sendTo("borkler", "helloworld", () -> {
+		// LOGGER.info("Hello world from the MDK");
+		// return "Hello world";});
+
 	}
 
 	private void processIMC(final InterModProcessEvent event) {
 		// some example code to receive and process InterModComms from other mods
-		LOGGER.info("Got IMC {}",
-				event.getIMCStream().map(m -> m.getMessageSupplier().get()).collect(Collectors.toList()));
+		// LOGGER.info("Got IMC {}",
+		// event.getIMCStream().map(m ->
+		// m.getMessageSupplier().get()).collect(Collectors.toList()));
 	}
 
-	// You can use SubscribeEvent and let the Event Bus discover methods to call
 	@SubscribeEvent
 	public void onServerStarting(FMLServerStartingEvent event) {
 		// do something when the server starts
@@ -121,7 +114,7 @@ public class Borkler {
 	 * <p>
 	 * A class containing methods that are called when Forge starts registering
 	 * stuff. The methods in this class are responsible for registering blocks,
-	 * fluids and items associated with Borkler. Their names are pretty
+	 * fluids, items and entities associated with Borkler. Their names are pretty
 	 * self-explanatory.
 	 * </p>
 	 * 
