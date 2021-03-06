@@ -1,5 +1,12 @@
 package gazcreations.borkler.entities;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.annotation.Nonnull;
+
 import gazcreations.borkler.Borkler;
 import gazcreations.borkler.Index;
 import gazcreations.borkler.blocks.BorklerBlock;
@@ -9,24 +16,23 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.fluid.Fluid;
 import net.minecraft.fluid.Fluids;
-import net.minecraft.inventory.IRecipeHelperPopulator;
-import net.minecraft.inventory.IRecipeHolder;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.container.Container;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.crafting.IRecipe;
-import net.minecraft.item.crafting.RecipeItemHelper;
+import net.minecraft.item.Items;
 import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.nbt.ListNBT;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tileentity.ITickableTileEntity;
 import net.minecraft.tileentity.LockableTileEntity;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.Direction;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
+import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
@@ -43,8 +49,18 @@ import net.minecraftforge.registries.ForgeRegistries;
  * @author gazotti
  *
  */
-public class BorklerTileEntity extends LockableTileEntity
-		implements IRecipeHolder, IRecipeHelperPopulator, ITickableTileEntity, IFluidHandler, IItemHandler {
+public class BorklerTileEntity extends LockableTileEntity implements ITickableTileEntity, IFluidHandler, IItemHandler {
+
+	/**
+	 * This contains a somewhat hardcoded set of stuff that the boiler is allowed to
+	 * accept as fuel, based on their burn time. <br>
+	 * Note that, due to a feature of MC/Forge, trying to run
+	 * {@link ForgeHooks#getBurnTime(ItemStack)} before a
+	 * {@link PlayerLoggedInEvent} has occurred will return an invalid value, such
+	 * as 0 or -1, instead of the correct burn time in ticks for that
+	 * {@link ItemStack}. As such, this Collection is
+	 */
+	private Collection<?> validFuels;
 
 	/**
 	 * Hereby referred interchangeably to as tank #0.
@@ -61,7 +77,7 @@ public class BorklerTileEntity extends LockableTileEntity
 	/**
 	 * A single inventory slot for up to 64 burnables.
 	 */
-	private Inventory solidFuel;
+	private final Inventory solidFuel;
 	/**
 	 * This one is a bit trickier. A positive, non-zero burn time indicates that the
 	 * boiler is active, consuming water and producing steam. A zero burn time
@@ -80,6 +96,12 @@ public class BorklerTileEntity extends LockableTileEntity
 	private boolean isActive;
 
 	/**
+	 * A Set containing up to 6 fluid connections for this boiler. This set is
+	 * always populated by {@link BorklerTileEntity#updateFluidConnections()}.
+	 */
+	private Set<LazyOptional<IFluidHandler>> connections;
+
+	/**
 	 * A constructor. Populates the Borkler's tanks with empty FluidStacks,
 	 * initializes its inventory and sets burnTime to zero.
 	 * 
@@ -89,9 +111,19 @@ public class BorklerTileEntity extends LockableTileEntity
 		this.water = new FluidStack(Fluids.EMPTY, 0);
 		this.fuel = new FluidStack(Fluids.EMPTY, 0);
 		this.steam = new FluidStack(Index.Fluids.STEAMSOURCE, 0);
-		this.solidFuel = new Inventory(ItemStack.EMPTY);
+		this.solidFuel = new Inventory(1) {
+			public void markDirty() {
+				BorklerTileEntity.this.markDirty();
+			}
+
+			@Override
+			public boolean isItemValidForSlot(int slot, ItemStack stack) {
+				return stack.getItem() == Items.COAL;
+			}
+		};
 		this.burnTime = 0;
 		this.isActive = false;
+		updateFluidConnections();
 		Borkler.LOGGER.debug("BorklerTileEntity created at " + pos);
 	}
 
@@ -145,14 +177,16 @@ public class BorklerTileEntity extends LockableTileEntity
 	public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
 		if (stack.isEmpty())
 			return ItemStack.EMPTY;
-		/*if (isActuallyALiquid(stack)) {
-			// TODO this looks like it will fuck shit up.
-			ItemStack copy = ItemHandlerHelper.copyStackWithSize(stack, stack.getCount());
-			IFluidHandler o = (IFluidHandler) copy.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY);
-			fill(o.drain(o.getFluidInTank(0).getAmount(), FluidAction.EXECUTE), FluidAction.EXECUTE);
-			return copy;
-
-		}*/
+		/*
+		 * if (isActuallyALiquid(stack)) { // TODO this looks like it will fuck shit up.
+		 * ItemStack copy = ItemHandlerHelper.copyStackWithSize(stack,
+		 * stack.getCount()); IFluidHandler o = (IFluidHandler)
+		 * copy.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY);
+		 * fill(o.drain(o.getFluidInTank(0).getAmount(), FluidAction.EXECUTE),
+		 * FluidAction.EXECUTE); return copy;
+		 * 
+		 * }
+		 */
 		if (!isItemValid(0, stack))
 			return stack;
 		ItemStack existing = this.solidFuel.getStackInSlot(0);
@@ -172,9 +206,21 @@ public class BorklerTileEntity extends LockableTileEntity
 
 		if (!simulate) {
 			if (existing.isEmpty()) {
-				solidFuel = new Inventory(reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, limit) : stack);
+				gazcreations.borkler.Borkler.LOGGER.debug("Inventory is empty, creating a new one");
+				solidFuel.setInventorySlotContents(0,
+						reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, limit) : stack);
+				gazcreations.borkler.Borkler.LOGGER.debug("New inv contents are:");
+				for (int i = 0; i < solidFuel.getSizeInventory(); i++) {
+					gazcreations.borkler.Borkler.LOGGER.debug(solidFuel.getStackInSlot(i).toString());
+
+				}
 			} else {
+				gazcreations.borkler.Borkler.LOGGER
+						.debug("Inventory contains items: " + solidFuel.getStackInSlot(0).toString());
 				existing.grow(reachedLimit ? limit : stack.getCount());
+				gazcreations.borkler.Borkler.LOGGER
+						.debug("Inventory now contains items: " + solidFuel.getStackInSlot(0).toString());
+
 			}
 			markDirty();
 		}
@@ -209,7 +255,7 @@ public class BorklerTileEntity extends LockableTileEntity
 	 */
 	@Override
 	public boolean isItemValid(int slot, ItemStack stack) {
-		return stack.getBurnTime() > 0;
+		return solidFuel.isItemValidForSlot(slot, stack);// ForgeHooks.getBurnTime(stack) > 0;
 
 	}
 
@@ -415,6 +461,76 @@ public class BorklerTileEntity extends LockableTileEntity
 	}
 
 	/**
+	 * This method runs a check on all sides of this TileEntity and populates this
+	 * {@link BorklerTileEntity#connections} with a HashSet containing up to 6 {@link IFluidHandler} instances.
+	 * <br>
+	 * The populated set is guaranteed not to be null and not to contain any null elements.
+	 * 
+	 */
+	public void updateFluidConnections() {
+		Set<LazyOptional<IFluidHandler>> consumers = new HashSet<LazyOptional<IFluidHandler>>(7) {
+			private static final long serialVersionUID = 1L;
+
+			public boolean add(LazyOptional<IFluidHandler> element) {
+				if (element == null)
+					return false;
+				return super.add(element);
+			}
+		};
+		LazyOptional<IFluidHandler> cap = LazyOptional.empty();
+		TileEntity te = null;
+		// Trigger warning: the following section may require subsequent use of
+		// eyebleach.
+		// up
+		if ((te = this.world.getTileEntity(getPos().offset(Direction.UP))) != null) {
+			cap = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, Direction.DOWN);
+			if (cap.isPresent())
+				consumers.add(cap);
+		}
+		// down
+		if ((te = this.world.getTileEntity(getPos().offset(Direction.DOWN))) != null) {
+			cap = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, Direction.UP);
+			if (cap.isPresent())
+				consumers.add(cap);
+		}
+		// east
+		if ((te = this.world.getTileEntity(getPos().offset(Direction.EAST))) != null) {
+			cap = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, Direction.WEST);
+			if (cap.isPresent())
+				consumers.add(cap);
+		}
+		// west
+		if ((te = this.world.getTileEntity(getPos().offset(Direction.WEST))) != null) {
+			cap = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, Direction.EAST);
+			if (cap.isPresent())
+				consumers.add(cap);
+		}
+		// north
+		if ((te = this.world.getTileEntity(getPos().offset(Direction.NORTH))) != null) {
+			cap = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, Direction.SOUTH);
+			if (cap.isPresent())
+				consumers.add(cap);
+		}
+		// south
+		if ((te = this.world.getTileEntity(getPos().offset(Direction.SOUTH))) != null) {
+			cap = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, Direction.NORTH);
+			if (cap.isPresent())
+				consumers.add(cap);
+		}
+		this.connections = consumers;
+	}
+
+	/**
+	 * Will attempt to pull a compatible fluid (i.e. water or fuel) from a connected
+	 * {@link IFluidHandler}.
+	 * 
+	 * @param source
+	 */
+	public void pullFluid(IFluidHandler source) {
+		source.drain(new FluidStack(Fluids.WATER, getTankCapacity(0)), FluidAction.EXECUTE);
+	}
+
+	/**
 	 * @return Either {@link FluidStack#EMPTY} or a FluidStack of steam.
 	 */
 	@Override
@@ -466,7 +582,7 @@ public class BorklerTileEntity extends LockableTileEntity
 		for (int i = 0; i < solidFuel.getSizeInventory(); i++)
 			Borkler.LOGGER.debug("Slot" + i + ":" + solidFuel.getStackInSlot(i).getItem().getRegistryName() + "x "
 					+ solidFuel.getStackInSlot(i).getCount());
-		return new BorklerContainer(id, player, this);
+		return new BorklerContainer(id, player, this.solidFuel);
 	}
 
 	/**
@@ -511,7 +627,8 @@ public class BorklerTileEntity extends LockableTileEntity
 	@Override
 	public ItemStack removeStackFromSlot(int arg0) {
 		ItemStack stonks = solidFuel.removeStackFromSlot(0);
-		markDirty();
+		if (!stonks.isEmpty())
+			markDirty();
 		return stonks;
 	}
 
@@ -578,10 +695,10 @@ public class BorklerTileEntity extends LockableTileEntity
 				// for its burnTime ticks.
 				// EDIT: just found out that this will not work because of minecraft things.
 				// I've yet to find a way to fix it. TODO .
-				burnTime += decrStackSize(0, 1).getBurnTime();
+				// burnTime += decrStackSize(0, 1).getBurnTime();
 				// Borkler.LOGGER.debug("Burn time increased: now " + burnTime);
-				setActive(true);
-				return;
+				// setActive(true);
+				// return;
 			}
 			if (!fuel.isEmpty()) {
 				// ok, there is liquid fuel in the boiler. We'll try to burn this.
@@ -631,24 +748,6 @@ public class BorklerTileEntity extends LockableTileEntity
 		markDirty();
 	}
 
-	@Override
-	public void fillStackedContents(RecipeItemHelper arg0) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public IRecipe<?> getRecipeUsed() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public void setRecipeUsed(IRecipe<?> arg0) {
-		// TODO Auto-generated method stub
-
-	}
-
 	/**
 	 * The Boiler is like the Void. Many things go in, only steam gets out.
 	 * 
@@ -681,7 +780,7 @@ public class BorklerTileEntity extends LockableTileEntity
 		stuff.putInt("water", this.water.getAmount());
 		stuff.putString("fuelType", fuel.getFluid().getRegistryName().getPath());
 		stuff.putInt("fuelAmount", this.fuel.getAmount());
-		stuff.put("fuelInv", solidFuel.write());
+		// stuff.put("fuelInv", solidFuel.write());
 		stuff.putString("solidFuelType", this.solidFuel.getStackInSlot(0).getItem().getRegistryName().getPath());
 		stuff.putInt("solidFuelAmount", this.solidFuel.getStackInSlot(0).getCount());
 		stuff.putBoolean("isActive", isActive);
@@ -699,10 +798,11 @@ public class BorklerTileEntity extends LockableTileEntity
 		water = new FluidStack(Fluids.WATER, nbt.getInt("water"));
 		fuel = new FluidStack(ForgeRegistries.FLUIDS.getValue(new ResourceLocation(nbt.getString("fuelType"))),
 				nbt.getInt("fuelAmount"));
-		solidFuel = new Inventory(new ItemStack(
-				() -> ForgeRegistries.ITEMS.getValue(new ResourceLocation(nbt.getString("solidFuelType"))),
-				nbt.getInt("solidFuelAmount")));
-		new Inventory(1).read((ListNBT) nbt.get("fuelInv"));
+		solidFuel.setInventorySlotContents(0,
+				new ItemStack(
+						() -> ForgeRegistries.ITEMS.getValue(new ResourceLocation(nbt.getString("solidFuelType"))),
+						nbt.getInt("solidFuelAmount")));
+		// new Inventory(1).read((ListNBT) nbt.get("fuelInv"));
 		isActive = nbt.getBoolean("isActive");
 		burnTime = nbt.getInt("burnTime");
 	}

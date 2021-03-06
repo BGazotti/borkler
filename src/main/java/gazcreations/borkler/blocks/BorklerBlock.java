@@ -1,5 +1,7 @@
 package gazcreations.borkler.blocks;
 
+import java.util.function.ToIntFunction;
+
 import javax.annotation.Nullable;
 
 import gazcreations.borkler.entities.BorklerTileEntity;
@@ -9,13 +11,16 @@ import net.minecraft.block.ILiquidContainer;
 import net.minecraft.block.SoundType;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.monster.piglin.PiglinTasks;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.fluid.Fluid;
 import net.minecraft.fluid.FluidState;
+import net.minecraft.inventory.InventoryHelper;
 import net.minecraft.inventory.container.INamedContainerProvider;
 import net.minecraft.item.ItemStack;
 import net.minecraft.state.BooleanProperty;
 import net.minecraft.state.StateContainer;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ActionResultType;
 import net.minecraft.util.Hand;
@@ -23,6 +28,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.BlockRayTraceResult;
 import net.minecraft.world.IBlockReader;
 import net.minecraft.world.IWorld;
+import net.minecraft.world.IWorldReader;
 import net.minecraft.world.World;
 import net.minecraftforge.common.ToolType;
 import net.minecraftforge.fluids.FluidStack;
@@ -60,7 +66,15 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	 */
 	public BorklerBlock() {
 		super(Properties.create(Material.PISTON).hardnessAndResistance(2.0f).sound(SoundType.STONE)
-				.harvestTool(ToolType.PICKAXE).harvestLevel(0));
+				.harvestTool(ToolType.PICKAXE).harvestLevel(0).setLightLevel(new ToIntFunction<BlockState>() {
+					@Override
+					public int applyAsInt(BlockState value) {
+						if (value.get(BorklerBlock.ACTIVE))
+							return 13;
+						else
+							return 0;
+					}
+				}));
 		this.setRegistryName("borkler", "steam_boiler");
 		this.setDefaultState(stateContainer.getBaseState().with(ACTIVE, false));
 	}
@@ -68,7 +82,7 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	/**
 	 * This method is called when the block is right-clicked. It will open up the
 	 * GUI, and that's pretty much it. <br>
-	 * Fluid insertion logic via bucket is handled by their own items if you just
+	 * Fluid insertion logic via bucket is handled by their own items if you
 	 * shift+click.
 	 * 
 	 * @param state
@@ -94,8 +108,8 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	}
 
 	/**
-	 * Gets the Container, which I believe to be a back-end for the GUI? I'm just as
-	 * confused as you are, if you're reading this.
+	 * Gets the Container, which is essentially a way for interacting with this
+	 * block's TileEntity inventory.
 	 */
 	@Override
 	@Nullable
@@ -112,6 +126,18 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 		return true;
 	}
 
+	/**
+	 * Forces this Borkler's {@link BorklerTileEntity} to update its list of
+	 * possible adjacent FluidHandlers.
+	 */
+	@Override
+	public void onNeighborChange(BlockState state, IWorldReader world, BlockPos pos, BlockPos neighbor) {
+		//TODO implement
+	}
+
+	/**
+	 * Returns a new {@link BorklerTileEntity}.
+	 */
 	@Override
 	public TileEntity createTileEntity(BlockState state, IBlockReader world) {
 		return new BorklerTileEntity();
@@ -185,4 +211,14 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 		}
 		return false;
 	}
+
+	/**
+	 * Overriden to drop items in the Boiler's inventory if it is destroyed.
+	 */
+	@Override
+	public void onBlockHarvested(World worldIn, BlockPos pos, BlockState state, PlayerEntity player) {
+		super.onBlockHarvested(worldIn, pos, state, player);
+		InventoryHelper.dropInventoryItems(worldIn, pos, getTileEntity(worldIn, pos));
+	}
+
 }
