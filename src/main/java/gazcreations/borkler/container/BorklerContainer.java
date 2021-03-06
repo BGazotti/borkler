@@ -30,16 +30,15 @@ public class BorklerContainer extends Container {
 		this.borklerInventory = inventory;
 		borklerInventory.openInventory(playerInv.player);
 		addSlot(new Slot(inventory, 0, 28, 27) {
-			@Override
-			public void onSlotChanged() {
-				super.onSlotChanged();
-				gazcreations.borkler.Borkler.LOGGER
-						.debug("The Borkler Slot has changed. Content: " + this.getStack().toString());
-			}
 
 			@Override
 			public boolean isItemValid(ItemStack stack) {
-				return inventory.isItemValidForSlot(this.getSlotIndex(), stack);
+				boolean valid = inventory.isItemValidForSlot(this.getSlotIndex(), stack);
+				if (!valid)
+					gazcreations.borkler.Borkler.LOGGER
+							.debug("An invalid item has been inserted into a Borkler special slot: "
+									+ stack.getItem().getRegistryName());
+				return valid;
 			}
 
 			@Override
@@ -73,11 +72,22 @@ public class BorklerContainer extends Container {
 		super.onContainerClosed(playerIn);
 		borklerInventory.closeInventory(playerIn);
 	}
+
+	@Override
+	public void putStackInSlot(int index, ItemStack stack) {
+		if (index == 0) { //Borkler Special Slot. Running extra checks.
+			if (!getSlot(0).isItemValid(stack))
+				return;
+		}
+		super.putStackInSlot(index, stack);
+	}
 	
+	/**
+	 * Handles shift+click logic.
+	 */
 	@Override
 	public ItemStack transferStackInSlot(PlayerEntity playerIn, int index) {
 		ItemStack itemstack = ItemStack.EMPTY;
-		this.putStackInSlot(index, itemstack);
 		Slot slot = this.inventorySlots.get(index);
 		if (slot != null && slot.getHasStack()) {
 			ItemStack itemstack1 = slot.getStack();

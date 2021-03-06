@@ -13,6 +13,15 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
+//crafttweaker support
+repositories {
+    maven { url 'https://maven.blamejared.com' }
+}
+
+dependencies {
+	runtimeOnly fg.deobf("com.blamejared.crafttweaker:CraftTweaker-1.16.5:[7.1.0.141]")
+}
+
 version = '1.0'
 group = 'net.gazcreations.borkler' // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = 'borkler'
@@ -167,3 +176,5 @@ publishing {
         }
     }
 }
+
+

@@ -29,6 +29,8 @@ import net.minecraft.util.Direction;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
+import net.minecraft.world.IBlockReader;
+import net.minecraft.world.World;
 import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.util.LazyOptional;
@@ -106,7 +108,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * initializes its inventory and sets burnTime to zero.
 	 * 
 	 */
-	public BorklerTileEntity() {
+	public BorklerTileEntity(IBlockReader world) {
 		super(Index.BORKLER_TE_TYPE);
 		this.water = new FluidStack(Fluids.EMPTY, 0);
 		this.fuel = new FluidStack(Fluids.EMPTY, 0);
@@ -123,8 +125,19 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		};
 		this.burnTime = 0;
 		this.isActive = false;
-		updateFluidConnections();
+		this.connections = Collections.emptySet();
+		this.world = (World) world;
+		// updateFluidConnections();
 		Borkler.LOGGER.debug("BorklerTileEntity created at " + pos);
+	}
+
+	/**
+	 * This constructor exists only for {@link Index} purposes, and should not be
+	 * used under other circumstances. TileEntities must have a world to be bound
+	 * to.
+	 */
+	public BorklerTileEntity() {
+		this(null);
 	}
 
 	/**
@@ -462,9 +475,10 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 
 	/**
 	 * This method runs a check on all sides of this TileEntity and populates this
-	 * {@link BorklerTileEntity#connections} with a HashSet containing up to 6 {@link IFluidHandler} instances.
-	 * <br>
-	 * The populated set is guaranteed not to be null and not to contain any null elements.
+	 * {@link BorklerTileEntity#connections} with a HashSet containing up to 6
+	 * {@link IFluidHandler} instances. <br>
+	 * The populated set is guaranteed not to be null and not to contain any null
+	 * elements.
 	 * 
 	 */
 	public void updateFluidConnections() {
@@ -472,11 +486,14 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			private static final long serialVersionUID = 1L;
 
 			public boolean add(LazyOptional<IFluidHandler> element) {
-				if (element == null)
+				if (element == null || !element.isPresent())
 					return false;
 				return super.add(element);
 			}
 		};
+		gazcreations.borkler.Borkler.LOGGER
+				.debug("Borkler @" + world + " ," + pos + " has been politely asked to update its fluid connections.");
+		gazcreations.borkler.Borkler.LOGGER.debug("Current connections are: " + this.connections.toString());
 		LazyOptional<IFluidHandler> cap = LazyOptional.empty();
 		TileEntity te = null;
 		// Trigger warning: the following section may require subsequent use of
@@ -517,6 +534,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			if (cap.isPresent())
 				consumers.add(cap);
 		}
+		gazcreations.borkler.Borkler.LOGGER.debug("Borkler @" + world + " ," + pos + "has updated its connections: " + consumers.toString());
 		this.connections = consumers;
 	}
 

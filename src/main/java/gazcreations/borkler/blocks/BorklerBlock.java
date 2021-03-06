@@ -7,6 +7,7 @@ import javax.annotation.Nullable;
 import gazcreations.borkler.entities.BorklerTileEntity;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.DirectionalBlock;
 import net.minecraft.block.ILiquidContainer;
 import net.minecraft.block.SoundType;
 import net.minecraft.block.material.Material;
@@ -127,12 +128,15 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	}
 
 	/**
-	 * Forces this Borkler's {@link BorklerTileEntity} to update its list of
-	 * possible adjacent FluidHandlers.
+	 * Executes a quick check to see if this block's new neighbor is a {@link TileEntity}. If so, forces this Borkler's {@link BorklerTileEntity} to update
+	 * its list of possible adjacent FluidHandlers, regarding direction.
+	 * <br>
+	 * See {@link BorklerTileEntity#updateFluidConnections()}.
 	 */
 	@Override
 	public void onNeighborChange(BlockState state, IWorldReader world, BlockPos pos, BlockPos neighbor) {
-		//TODO implement
+		gazcreations.borkler.Borkler.LOGGER.debug("A Borkler has been notified of changes to its neighbors.");
+		this.getTileEntity(world, pos).updateFluidConnections();
 	}
 
 	/**
@@ -140,7 +144,7 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	 */
 	@Override
 	public TileEntity createTileEntity(BlockState state, IBlockReader world) {
-		return new BorklerTileEntity();
+		return new BorklerTileEntity(world); 
 	}
 
 	/**
@@ -171,15 +175,11 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 
 	@Override
 	public void onBlockPlacedBy(World worldIn, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack) {
-		TileEntity tileentity = worldIn.getTileEntity(pos);
-		if (tileentity instanceof BorklerTileEntity) {
-			if (stack.hasDisplayName()) {
-				((BorklerTileEntity) tileentity).setCustomName(stack.getDisplayName());
-			}
-		} else {
-			throw new RuntimeException(
-					"What in the entire fuck? A Boiler has another type of TE that not its own!" + "\n" + "Call Gaz!");
+		BorklerTileEntity te = getTileEntity(worldIn, pos);
+		if (stack.hasDisplayName()) {
+			te.setCustomName(stack.getDisplayName());
 		}
+		te.updateFluidConnections();
 	}
 
 	/**
