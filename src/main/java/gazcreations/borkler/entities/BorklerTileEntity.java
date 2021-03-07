@@ -24,9 +24,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-import javax.annotation.Nonnull;
-
 import gazcreations.borkler.Borkler;
+import gazcreations.borkler.BorklerConfig;
 import gazcreations.borkler.Index;
 import gazcreations.borkler.blocks.BorklerBlock;
 import gazcreations.borkler.container.BorklerContainer;
@@ -553,7 +552,8 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			if (cap.isPresent())
 				consumers.add(cap);
 		}
-		gazcreations.borkler.Borkler.LOGGER.debug("Borkler @" + world + " ," + pos + "has updated its connections: " + consumers.toString());
+		gazcreations.borkler.Borkler.LOGGER
+				.debug("Borkler @" + world + " ," + pos + "has updated its connections: " + consumers.toString());
 		this.connections = consumers;
 	}
 
@@ -776,9 +776,9 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * Any excess steam is discarded.
 	 */
 	private final void boil() {
-		int amount = Math.min(this.water.getAmount(), 25);
+		int amount = Math.min(this.water.getAmount(), BorklerConfig.SPEC.getInt("water_use"));
 		this.water.shrink(amount);
-		this.steam.grow(amount);
+		this.steam.grow(Math.toIntExact(Math.round(amount * (double) BorklerConfig.SPEC.get("conversion_rate"))));
 		if (steam.getAmount() > getTankCapacity(2))
 			steam.setAmount(getTankCapacity(2));
 		burnTime--;

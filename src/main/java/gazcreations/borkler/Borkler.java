@@ -104,7 +104,7 @@ public class Borkler {
 		steamTypes.add(() -> Index.Fluids.STEAM);
 		steamTypes.add(() -> Index.Fluids.STEAMSOURCE);
 		FluidTags.createOptional(steam, steamTypes);
-
+		BorklerConfig.setup();
 	}
 
 	private void enqueueIMC(final InterModEnqueueEvent event) {
