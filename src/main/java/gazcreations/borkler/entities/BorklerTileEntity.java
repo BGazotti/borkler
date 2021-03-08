@@ -776,9 +776,10 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * Any excess steam is discarded.
 	 */
 	private final void boil() {
-		int amount = Math.min(this.water.getAmount(), BorklerConfig.SPEC.getInt("water_use"));
+		int amount = Math.min(this.water.getAmount(), BorklerConfig.CONFIG.SPEC.getInt("water_use"));
 		this.water.shrink(amount);
-		this.steam.grow(Math.toIntExact(Math.round(amount * (double) BorklerConfig.SPEC.get("conversion_rate"))));
+		this.steam
+				.grow(Math.toIntExact(Math.round(amount * (double) BorklerConfig.CONFIG.SPEC.get("conversion_rate"))));
 		if (steam.getAmount() > getTankCapacity(2))
 			steam.setAmount(getTankCapacity(2));
 		burnTime--;

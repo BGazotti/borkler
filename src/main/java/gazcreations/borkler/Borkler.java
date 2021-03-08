@@ -19,6 +19,8 @@
 
 package gazcreations.borkler;
 
+import static net.minecraftforge.fml.loading.LogMarkers.FORGEMOD;
+
 import java.util.HashSet;
 import java.util.function.Supplier;
 
@@ -34,12 +36,14 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.InterModEnqueueEvent;
 import net.minecraftforge.fml.event.lifecycle.InterModProcessEvent;
@@ -104,7 +108,7 @@ public class Borkler {
 		steamTypes.add(() -> Index.Fluids.STEAM);
 		steamTypes.add(() -> Index.Fluids.STEAMSOURCE);
 		FluidTags.createOptional(steam, steamTypes);
-		BorklerConfig.setup();
+		LOGGER.fatal(BorklerConfig.CONFIG.WATER_USE.get());
 	}
 
 	private void enqueueIMC(final InterModEnqueueEvent event) {
