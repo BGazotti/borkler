@@ -59,6 +59,7 @@ import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fml.LogicalSide;
 import net.minecraftforge.fml.LogicalSidedProvider;
+import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -122,12 +123,22 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * Note that that method uses {@link Collections#synchronizedSet(Set)} to create
 	 * the set; as such, iteration must be synchronized on it.
 	 */
-	private Set<LazyOptional<IFluidHandler>> connections;
+	private Set<LazyOptional<IFluidHandler>> fluidConnections;
 
 	/**
 	 * A cacheable value for this entity's Capability<IFluidHandler>.
 	 */
 	private LazyOptional<IFluidHandler> fluidHandlerCapability;
+
+	/**
+	 * A Set containing up to 6 item connections for this boiler.
+	 */
+	private Set<LazyOptional<IItemHandler>> itemConnections;
+
+	/**
+	 * A cacheable value for this entity's Capability<IItemHandler>.
+	 */
+	private LazyOptional<IItemHandler> itemHandlerCapability;
 
 	/**
 	 * A constructor. Populates the Borkler's tanks with empty FluidStacks,
@@ -160,10 +171,13 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		};
 		this.burnTime = 0;
 		this.isActive = false;
-		this.connections = Collections.emptySet();
+		this.fluidConnections = Collections.emptySet();
+		this.itemConnections = Collections.emptySet();
 		this.world = (World) world;
-		if (world != null) // index TEs will not run this
+		if (world != null) { // index TEs will not run this
 			updateFluidConnections();
+			updateItemConnections();
+		}
 		Borkler.LOGGER.info("BorklerTileEntity created at " + pos);
 	}
 
@@ -226,25 +240,15 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
 		if (stack.isEmpty())
 			return ItemStack.EMPTY;
-		/*
-		 * if (isActuallyALiquid(stack)) { // TODO this looks like it will fuck shit up.
-		 * ItemStack copy = ItemHandlerHelper.copyStackWithSize(stack,
-		 * stack.getCount()); IFluidHandler o = (IFluidHandler)
-		 * copy.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY);
-		 * fill(o.drain(o.getFluidInTank(0).getAmount(), FluidAction.EXECUTE),
-		 * FluidAction.EXECUTE); return copy;
-		 * 
-		 * }
-		 */
+
 		if (!isItemValid(0, stack))
 			return stack;
-		ItemStack existing = this.solidFuel.getStackInSlot(0);
 
+		ItemStack existing = this.solidFuel.getStackInSlot(0);
 		int limit = getSlotLimit(0);
 		if (!existing.isEmpty()) {
 			if (!ItemHandlerHelper.canItemStacksStack(stack, existing))
 				return stack;
-
 			limit -= existing.getCount();
 		}
 
@@ -273,7 +277,6 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			}
 			markDirty();
 		}
-
 		return reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, stack.getCount() - limit) : ItemStack.EMPTY;
 	}
 
@@ -305,7 +308,6 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	@Override
 	public boolean isItemValid(int slot, ItemStack stack) {
 		return solidFuel.isItemValidForSlot(0, stack);
-
 	}
 
 	/**
@@ -535,9 +537,63 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		return element;
 	}
 
+	public void updateItemConnections() {
+		Set<LazyOptional<IItemHandler>> consumers = Collections
+				.synchronizedSet(new HashSet<LazyOptional<IItemHandler>>(7, 0.99f) {
+					private static final long serialVersionUID = 1L;
+
+					public boolean add(LazyOptional<IItemHandler> element) {
+						if (element == null || !element.isPresent())
+							return false;
+						return super.add(element);
+					}
+				});
+		gazcreations.borkler.Borkler.LOGGER
+				.info("Borkler @" + world + " ," + pos + " has been politely asked to update its item connections.");
+		LazyOptional<IItemHandler> cap = null;
+		TileEntity te = null;
+		// Trigger warning: the following section may require subsequent use of
+		// eyebleach.
+		// up
+		if ((te = this.world.getTileEntity(getPos().offset(Direction.UP))) != null) {
+			cap = te.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, Direction.DOWN);
+			// if (cap.isPresent()) override of Set.add will prevent empty Optionals from
+			// being added
+			addWithListener(consumers, cap);
+		}
+		// down
+		if ((te = this.world.getTileEntity(getPos().offset(Direction.DOWN))) != null) {
+			cap = te.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, Direction.UP);
+			addWithListener(consumers, cap);
+		}
+		// east
+		if ((te = this.world.getTileEntity(getPos().offset(Direction.EAST))) != null) {
+			cap = te.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, Direction.WEST);
+			addWithListener(consumers, cap);
+		}
+		// west
+		if ((te = this.world.getTileEntity(getPos().offset(Direction.WEST))) != null) {
+			cap = te.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, Direction.EAST);
+			addWithListener(consumers, cap);
+		}
+		// north
+		if ((te = this.world.getTileEntity(getPos().offset(Direction.NORTH))) != null) {
+			cap = te.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, Direction.SOUTH);
+			addWithListener(consumers, cap);
+		}
+		// south
+		if ((te = this.world.getTileEntity(getPos().offset(Direction.SOUTH))) != null) {
+			cap = te.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, Direction.NORTH);
+			addWithListener(consumers, cap);
+		}
+		gazcreations.borkler.Borkler.LOGGER
+				.info("Borkler @" + world + " ," + pos + "has updated its item connections: " + consumers.toString());
+		this.itemConnections = consumers;
+	}
+
 	/**
 	 * This method runs a check on all sides of this TileEntity and populates this
-	 * {@link BorklerTileEntity#connections} with a HashSet containing up to 6
+	 * {@link BorklerTileEntity#fluidConnections} with a HashSet containing up to 6
 	 * {@link IFluidHandler} instances. <br>
 	 * The populated set is guaranteed not to be null and not to contain any null
 	 * elements.
@@ -556,7 +612,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 				});
 		gazcreations.borkler.Borkler.LOGGER
 				.info("Borkler @" + world + " ," + pos + " has been politely asked to update its fluid connections.");
-		gazcreations.borkler.Borkler.LOGGER.info("Current connections are: " + this.connections.toString());
+		gazcreations.borkler.Borkler.LOGGER.info("Current connections are: " + this.fluidConnections.toString());
 		LazyOptional<IFluidHandler> cap = null;
 		TileEntity te = null;
 		// Trigger warning: the following section may require subsequent use of
@@ -595,7 +651,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		}
 		gazcreations.borkler.Borkler.LOGGER
 				.info("Borkler @" + world + " ," + pos + "has updated its connections: " + consumers.toString());
-		this.connections = consumers;
+		this.fluidConnections = consumers;
 	}
 
 	/**
@@ -797,8 +853,8 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		// to do so before anything else.
 		if (BorklerConfig.CONFIG.THIRSTY.get()) {
 			// will check its connections for a water supply
-			synchronized (connections) {
-				for (LazyOptional<IFluidHandler> supplier : connections) {
+			synchronized (fluidConnections) {
+				for (LazyOptional<IFluidHandler> supplier : fluidConnections) {
 					// no need to check if it's null, because of the design of the
 					// updateFluidConnections method
 					if (supplier.isPresent()) {
@@ -962,16 +1018,17 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	@Override
 	public void onLoad() {
 		super.onLoad();
-		if (world != null && !world.isRemote())
+		if (world != null && !world.isRemote()) {
 			addFutureServerTask(world, () -> updateFluidConnections(), true);
-
+			addFutureServerTask(world, () -> updateItemConnections(), true);
+			addFutureServerTask(world, () -> this.updateContainingBlockInfo(), true);
+		}
 	}
 
 	/**
 	 * This function was copied from the IE code because running
 	 * updateFluidConnections in onLoad would cause minecraft to hang indefinitely.
-	 * Let's see if this fixes it.
-	 * EDIT: it does. Genius.
+	 * Let's see if this fixes it. EDIT: it does. Genius.
 	 * 
 	 * @author BluSunrize of Immersive Engineering.
 	 * @param world
@@ -1012,18 +1069,27 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			if (fluidHandlerCapability == null) {
 				fluidHandlerCapability = LazyOptional.of(() -> this);
 			}
-			return fluidHandlerCapability.cast();
+			return (LazyOptional<T>) fluidHandlerCapability;
+		}
+		if (cap == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY) {
+			if (itemHandlerCapability == null) {
+				itemHandlerCapability = LazyOptional.of(() -> this);
+			}
+			return (LazyOptional<T>) itemHandlerCapability;
 		}
 		return super.getCapability(cap, side);
 	}
 
 	/**
-	 * Invalidates this entity's {@link BorklerTileEntity#fluidHandlerCapability}.
+	 * Invalidates this entity's {@link BorklerTileEntity#fluidHandlerCapability}
+	 * and {@link BorklerTileEntity#itemHandlerCapability}.
 	 */
 	@Override
 	public void invalidateCaps() {
 		if (fluidHandlerCapability != null)
 			fluidHandlerCapability.invalidate();
+		if (itemHandlerCapability != null)
+			itemHandlerCapability.invalidate();
 		super.invalidateCaps();
 	}
 }

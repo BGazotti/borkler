@@ -152,7 +152,9 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	@Override
 	public void onNeighborChange(BlockState state, IWorldReader world, BlockPos pos, BlockPos neighbor) {
 		gazcreations.borkler.Borkler.LOGGER.info("A Borkler has been notified of changes to its neighbors.");
-		this.getTileEntity(world, pos).updateFluidConnections();
+		BorklerTileEntity te = this.getTileEntity(world, pos);
+		te.updateFluidConnections();
+		te.updateItemConnections();
 	}
 
 	/**
@@ -196,6 +198,7 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 			te.setCustomName(stack.getDisplayName());
 		}
 		te.updateFluidConnections();
+		te.updateItemConnections();
 	}
 
 	/**
