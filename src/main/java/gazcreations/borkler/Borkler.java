@@ -19,8 +19,6 @@
 
 package gazcreations.borkler;
 
-import static net.minecraftforge.fml.loading.LogMarkers.FORGEMOD;
-
 import java.util.HashSet;
 import java.util.function.Supplier;
 
@@ -36,14 +34,14 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.InterModEnqueueEvent;
 import net.minecraftforge.fml.event.lifecycle.InterModProcessEvent;
@@ -76,7 +74,7 @@ public class Borkler {
 	/**
 	 * Just a constructor. Nothing to see here, move along.
 	 * <p>
-	 * JK. Here we set listeners for the basic methods of the mod, and may do other
+	 * JK. Here we set listeners for the basic methods of the mod, register our config file, and may do other
 	 * stuff. WIP.
 	 * </p>
 	 */
@@ -85,13 +83,15 @@ public class Borkler {
 		// Register the setup method for modloading
 		BUS.addListener(this::setup);
 		// Register the enqueueIMC method for modloading
-		BUS.addListener(this::enqueueIMC);
+		//BUS.addListener(this::enqueueIMC);
 		// Register the processIMC method for modloading
-		BUS.addListener(this::processIMC);
+		//BUS.addListener(this::processIMC);
 		// Registers methods for running on the client only
 		DistExecutor.safeRunWhenOn(Dist.CLIENT, new ClientProxy());
 		// Register ourselves for server and other game events we are interested in
 		MinecraftForge.EVENT_BUS.register(this);
+		ModLoadingContext.get().registerConfig(net.minecraftforge.fml.config.ModConfig.Type.COMMON, BorklerConfig.SPEC,
+				"borkler.toml");
 
 	}
 
@@ -108,9 +108,14 @@ public class Borkler {
 		steamTypes.add(() -> Index.Fluids.STEAM);
 		steamTypes.add(() -> Index.Fluids.STEAMSOURCE);
 		FluidTags.createOptional(steam, steamTypes);
-		LOGGER.fatal(BorklerConfig.CONFIG.WATER_USE.get());
 	}
 
+	private void onPlayerLogin(final PlayerLoggedInEvent event) {
+		//generateServerBurnTimeConfig()
+		//sendServerBurnTimesToPlayers(List)
+		//updateClientBurnablesList
+	}
+	
 	private void enqueueIMC(final InterModEnqueueEvent event) {
 		// some example code to dispatch IMC to another mod
 		// InterModComms.sendTo("borkler", "helloworld", () -> {

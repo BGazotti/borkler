@@ -20,19 +20,11 @@
 package gazcreations.borkler;
 
 import java.io.File;
-import java.nio.file.FileAlreadyExistsException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import com.electronwill.nightconfig.core.CommentedConfig;
-import com.electronwill.nightconfig.core.file.FileConfig;
-
 import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.common.ForgeConfigSpec.Builder;
-import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.loading.FMLPaths;
 
 public class BorklerConfig {
@@ -46,14 +38,16 @@ public class BorklerConfig {
 				.configure(BorklerConfig::new);
 		CONFIG = specPair.getKey();
 		SPEC = specPair.getValue();
-		SPEC.setConfig((CommentedConfig.copy(FileConfig.of(configPath))));
-		//SPEC.save();
-		ModLoadingContext.get().registerConfig(net.minecraftforge.fml.config.ModConfig.Type.COMMON, SPEC,
-				"borkler.toml");
-		
+		// SPEC.setConfig((CommentedConfig.copy(FileConfig.of(configPath))));
+		// SPEC.save();
+		/*
+		 * ModLoadingContext.get().registerConfig(net.minecraftforge.fml.config.
+		 * ModConfig.Type.COMMON, SPEC, "borkler.toml");
+		 */
+
 	}
-	//public final ForgeConfigSpec.Builder BUILDER;
-	
+
+	public final ForgeConfigSpec.BooleanValue HUNGRY;
 
 	/**
 	 * 
@@ -71,10 +65,9 @@ public class BorklerConfig {
 	public final ForgeConfigSpec.DoubleValue CONVERSION_RATE;
 
 	protected BorklerConfig(ForgeConfigSpec.Builder builder) {
-		Borkler.LOGGER.fatal(configPath);
-		setup();
-		//BUILDER = builder;
-		// BUILDER.push("options");
+		HUNGRY = builder.comment(
+				"If true, the boiler will automatically attempt to pull burnable items from connected containers.")
+				.define("hungry", false);
 		THIRSTY = builder.comment(
 				"If true, the boiler will automatically attempt to pull water and fuel from connected suppliers.")
 				.define("thirsty", true);
@@ -82,9 +75,6 @@ public class BorklerConfig {
 				.defineInRange("water_use", 25, 5, 500);
 		CONVERSION_RATE = builder.comment("The ratio of conversion of water into steam.")
 				.defineInRange("conversion_rate", 1.0, 0.1, 10.0);
-		// BUILDER.pop();
-		//SPEC = builder.build();
-		
 	}
 
 	/*
@@ -92,27 +82,8 @@ public class BorklerConfig {
 	 * file with that constructor. Instead of figuring out why and doing so
 	 * appropriately, i'm just going to hardcode the hell out of this shit. Sue me.
 	 */
-	public static void createDefaultFile() throws Exception {
-		final String content = "# If true, the boiler will automatically attempt to pull water and fuel from connected suppliers.\n"
-				+ "thirsty = true\n" + "# How much water will be consumed by a powered boiler, in mB/tick.\n"
-				+ "water_use = 25\n" + "# The ratio of conversion of water to steam.\n" + "conversion_ratio = 1.0\n";
-		Files.write(configPath, content.getBytes(), StandardOpenOption.CREATE);
-
-	}
 
 	public static void sendConfigToClient() {
 	}
 
-	protected final void setup() {
-		// Create the config folder
-		try {
-			if (!Files.exists(configPath))
-				createDefaultFile();
-		} catch (FileAlreadyExistsException e) {
-			// nice
-		} catch (Exception e) {
-			Borkler.LOGGER.error("An error has occurred while trying to create the Borkler config file.", e);
-		}
-
-	}
 }

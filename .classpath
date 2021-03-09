@@ -16,5 +16,7 @@
 	</classpathentry>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/jre8"/>
 	<classpathentry kind="con" path="org.eclipse.buildship.core.gradleclasspathcontainer"/>
+	<classpathentry kind="lib" path="CraftTweaker-1.16.3-[7.0.0.48]_mapped_snapshot_20201028-1.16.3.jar"/>
+	<classpathentry kind="lib" path="ZenScript-1.0.0.jar"/>
 	<classpathentry kind="output" path="bin/default"/>
 </classpath>

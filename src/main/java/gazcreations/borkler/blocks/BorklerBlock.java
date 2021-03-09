@@ -26,12 +26,10 @@ import javax.annotation.Nullable;
 import gazcreations.borkler.entities.BorklerTileEntity;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
-import net.minecraft.block.DirectionalBlock;
 import net.minecraft.block.ILiquidContainer;
 import net.minecraft.block.SoundType;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.monster.piglin.PiglinTasks;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.fluid.Fluid;
 import net.minecraft.fluid.FluidState;
@@ -40,7 +38,6 @@ import net.minecraft.inventory.container.INamedContainerProvider;
 import net.minecraft.item.ItemStack;
 import net.minecraft.state.BooleanProperty;
 import net.minecraft.state.StateContainer;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ActionResultType;
 import net.minecraft.util.Hand;
@@ -147,9 +144,9 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	}
 
 	/**
-	 * Executes a quick check to see if this block's new neighbor is a {@link TileEntity}. If so, forces this Borkler's {@link BorklerTileEntity} to update
-	 * its list of possible adjacent FluidHandlers, regarding direction.
-	 * <br>
+	 * Executes a quick check to see if this block's new neighbor is a
+	 * {@link TileEntity}. If so, forces this Borkler's {@link BorklerTileEntity} to
+	 * update its list of possible adjacent FluidHandlers, regarding direction. <br>
 	 * See {@link BorklerTileEntity#updateFluidConnections()}.
 	 */
 	@Override
@@ -163,7 +160,7 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	 */
 	@Override
 	public TileEntity createTileEntity(BlockState state, IBlockReader world) {
-		return new BorklerTileEntity(world); 
+		return new BorklerTileEntity(world);
 	}
 
 	/**
@@ -237,6 +234,7 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	@Override
 	public void onBlockHarvested(World worldIn, BlockPos pos, BlockState state, PlayerEntity player) {
 		super.onBlockHarvested(worldIn, pos, state, player);
+		getTileEntity(worldIn, pos).remove();
 		InventoryHelper.dropInventoryItems(worldIn, pos, getTileEntity(worldIn, pos));
 	}
 
