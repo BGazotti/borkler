@@ -37,12 +37,15 @@ import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.container.Container;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tileentity.ITickableTileEntity;
 import net.minecraft.tileentity.LockableTileEntity;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.Direction;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.concurrent.ThreadTaskExecutor;
+import net.minecraft.util.concurrent.TickDelayedTask;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.IBlockReader;
@@ -54,6 +57,8 @@ import net.minecraftforge.common.util.NonNullConsumer;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fml.LogicalSide;
+import net.minecraftforge.fml.LogicalSidedProvider;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -68,17 +73,6 @@ import net.minecraftforge.registries.ForgeRegistries;
  *
  */
 public class BorklerTileEntity extends LockableTileEntity implements ITickableTileEntity, IFluidHandler, IItemHandler {
-
-	/**
-	 * This contains a somewhat hardcoded set of stuff that the boiler is allowed to
-	 * accept as fuel, based on their burn time. <br>
-	 * Note that, due to a feature of MC/Forge, trying to run
-	 * {@link ForgeHooks#getBurnTime(ItemStack)} before a
-	 * {@link PlayerLoggedInEvent} has occurred will return an invalid value, such
-	 * as 0 or -1, instead of the correct burn time in ticks for that
-	 * {@link ItemStack}. As such, this Collection needs to be populated after that
-	 * event has fired, so that the burn time is correct for any fuel.
-	 */
 
 	/**
 	 * A set of valid {@link Fluid} types to use as fuel.
@@ -160,7 +154,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			 */
 			@Override
 			public boolean isItemValidForSlot(int slot, ItemStack stack) {
-				gazcreations.borkler.Borkler.LOGGER.debug(ForgeHooks.getBurnTime(stack));
+				gazcreations.borkler.Borkler.LOGGER.info(ForgeHooks.getBurnTime(stack));
 				return stack.isEmpty() || ForgeHooks.getBurnTime(stack) > 0;
 			}
 		};
@@ -170,7 +164,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		this.world = (World) world;
 		if (world != null) // index TEs will not run this
 			updateFluidConnections();
-		Borkler.LOGGER.debug("BorklerTileEntity created at " + pos);
+		Borkler.LOGGER.info("BorklerTileEntity created at " + pos);
 	}
 
 	/**
@@ -261,20 +255,20 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 
 		if (!simulate) {
 			if (existing.isEmpty()) {
-				gazcreations.borkler.Borkler.LOGGER.debug("Inventory is empty, creating a new one");
+				gazcreations.borkler.Borkler.LOGGER.info("Inventory is empty, creating a new one");
 				solidFuel.setInventorySlotContents(0,
 						reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, limit) : stack);
-				gazcreations.borkler.Borkler.LOGGER.debug("New inv contents are:");
+				gazcreations.borkler.Borkler.LOGGER.info("New inv contents are:");
 				for (int i = 0; i < solidFuel.getSizeInventory(); i++) {
-					gazcreations.borkler.Borkler.LOGGER.debug(solidFuel.getStackInSlot(i).toString());
+					gazcreations.borkler.Borkler.LOGGER.info(solidFuel.getStackInSlot(i).toString());
 
 				}
 			} else {
 				gazcreations.borkler.Borkler.LOGGER
-						.debug("Inventory contains items: " + solidFuel.getStackInSlot(0).toString());
+						.info("Inventory contains items: " + solidFuel.getStackInSlot(0).toString());
 				existing.grow(reachedLimit ? limit : stack.getCount());
 				gazcreations.borkler.Borkler.LOGGER
-						.debug("Inventory now contains items: " + solidFuel.getStackInSlot(0).toString());
+						.info("Inventory now contains items: " + solidFuel.getStackInSlot(0).toString());
 
 			}
 			markDirty();
@@ -534,7 +528,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			@Override
 			public void accept(LazyOptional<T> t) {
 				gazcreations.borkler.Borkler.LOGGER
-						.debug("A Borkler's supplier has been invalidated: " + t.toString() + "/" + element.toString());
+						.info("A Borkler's supplier has been invalidated: " + t.toString() + "/" + element.toString());
 				set.remove(element);
 			}
 		});
@@ -561,8 +555,8 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 					}
 				});
 		gazcreations.borkler.Borkler.LOGGER
-				.debug("Borkler @" + world + " ," + pos + " has been politely asked to update its fluid connections.");
-		gazcreations.borkler.Borkler.LOGGER.debug("Current connections are: " + this.connections.toString());
+				.info("Borkler @" + world + " ," + pos + " has been politely asked to update its fluid connections.");
+		gazcreations.borkler.Borkler.LOGGER.info("Current connections are: " + this.connections.toString());
 		LazyOptional<IFluidHandler> cap = null;
 		TileEntity te = null;
 		// Trigger warning: the following section may require subsequent use of
@@ -600,7 +594,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			addWithListener(consumers, cap);
 		}
 		gazcreations.borkler.Borkler.LOGGER
-				.debug("Borkler @" + world + " ," + pos + "has updated its connections: " + consumers.toString());
+				.info("Borkler @" + world + " ," + pos + "has updated its connections: " + consumers.toString());
 		this.connections = consumers;
 	}
 
@@ -613,16 +607,29 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	public void pullFluid(IFluidHandler source) {
 		if (!BorklerConfig.CONFIG.THIRSTY.get())
 			return;
+		// a hard check for fluid validity
+		boolean isValidSource = false;
+		for (int i = 0; i < source.getTanks(); i++) {
+			Fluid fluid = source.getFluidInTank(i).getFluid();
+			if (fluid == Fluids.EMPTY)
+				isValidSource = true; // in order for this to work with pipes, which drain on-demand, EMPTY has to be
+										// a valid fluid
+			byte tank = getTankForFluid(fluid);
+			if (tank >= 0 && tank != 2)
+				isValidSource = true;
+		}
+		if (!isValidSource)
+			return;
 		// try to pull water
 		FluidStack toDrain = new FluidStack(Fluids.WATER, getTankCapacity(0) - water.getAmount());
-		FluidStack drained = source.drain(toDrain, FluidAction.SIMULATE); //TODO i think this is draining for real
+		FluidStack drained = source.drain(toDrain, FluidAction.SIMULATE); // TODO i think this is draining for real
 		if (drained.getFluid().isEquivalentTo(Fluids.WATER) && drained.getAmount() > 0) {
 			if (water.isEmpty())
 				water = new FluidStack(Fluids.WATER, 0);
 			water.grow(source.drain(toDrain, FluidAction.EXECUTE).getAmount());
 			markDirty();
 			// water has been pulled!
-			gazcreations.borkler.Borkler.LOGGER.debug("A Boiler has pulled water: " + drained.getAmount());
+			gazcreations.borkler.Borkler.LOGGER.info("A Boiler has pulled water: " + drained.getAmount());
 		}
 		// try to pull fuel
 		if (!fuel.isEmpty()) {
@@ -634,7 +641,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			if (drained.getAmount() > 0) {
 				fuel.grow(source.drain(toDrain, FluidAction.EXECUTE).getAmount());
 				markDirty();
-				gazcreations.borkler.Borkler.LOGGER.debug("A Boiler has pulled fuel: " + drained.getAmount());
+				gazcreations.borkler.Borkler.LOGGER.info("A Boiler has pulled fuel: " + drained.getAmount());
 				// fuel has been pulled!
 			}
 		}
@@ -649,7 +656,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 				fuel = new FluidStack(toDrain.getFluid(), 0);
 				fuel.grow(source.drain(toDrain, FluidAction.EXECUTE).getAmount());
 				markDirty();
-				gazcreations.borkler.Borkler.LOGGER.debug("A Boiler has pulled fuel: " + toDrain.getAmount());
+				gazcreations.borkler.Borkler.LOGGER.info("A Boiler has pulled fuel: " + toDrain.getAmount());
 				// fuel has been pulled!
 			}
 		}
@@ -702,10 +709,10 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 */
 	@Override
 	protected Container createMenu(int id, PlayerInventory player) {
-		Borkler.LOGGER.debug("Borkler @ " + pos + "clicked. Opening GUI shortly." + "\n"
+		Borkler.LOGGER.info("Borkler @ " + pos + "clicked. Opening GUI shortly." + "\n"
 				+ "Inventory contents are as follows:\n" + solidFuel.getSizeInventory() + "slots;");
 		for (int i = 0; i < solidFuel.getSizeInventory(); i++)
-			Borkler.LOGGER.debug("Slot" + i + ":" + solidFuel.getStackInSlot(i).getItem().getRegistryName() + "x "
+			Borkler.LOGGER.info("Slot" + i + ":" + solidFuel.getStackInSlot(i).getItem().getRegistryName() + "x "
 					+ solidFuel.getStackInSlot(i).getCount());
 		return new BorklerContainer(id, player, this.solidFuel);
 	}
@@ -804,13 +811,13 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			}
 			// the boiler will refuse to operate if it has no water.
 			if (water.isEmpty()) {
-				// Borkler.LOGGER.debug("Boiler @" + pos + " shutting down due to lack of
+				// Borkler.LOGGER.info("Boiler @" + pos + " shutting down due to lack of
 				// water");
 				setActive(false);
 				return;
 			}
 			if (steam.getAmount() == getTankCapacity(2)) {
-				// Borkler.LOGGER.debug("Boiler @" + pos + " shutting down because its steam
+				// Borkler.LOGGER.info("Boiler @" + pos + " shutting down because its steam
 				// tank is full");
 				setActive(false);
 				return;
@@ -819,7 +826,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			if (burnTime > 0) {
 				// so, we have water, the boiler is active, and the steam tank is not full. It's
 				// boiling time, boyos.
-				gazcreations.borkler.Borkler.LOGGER.debug("Boiler is powered: " + burnTime);
+				gazcreations.borkler.Borkler.LOGGER.info("Boiler is powered: " + burnTime);
 				boil();
 
 			} else {
@@ -838,13 +845,13 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 					// EDIT: just found out that this will not work because of minecraft things.
 					// I've yet to find a way to fix it. TODO .
 					// burnTime += decrStackSize(0, 1).getBurnTime();
-					// Borkler.LOGGER.debug("Burn time increased: now " + burnTime);
+					// Borkler.LOGGER.info("Burn time increased: now " + burnTime);
 					// setActive(true);
 					// return;
 					int additionalBurnTime = ForgeHooks.getBurnTime(getStackInSlot(0));
 					if (additionalBurnTime > 0) {
 						gazcreations.borkler.Borkler.LOGGER
-								.debug("Consuming 1 " + getStackInSlot(0).getItem() + " for " + additionalBurnTime);
+								.info("Consuming 1 " + getStackInSlot(0).getItem() + " for " + additionalBurnTime);
 						burnTime += ForgeHooks.getBurnTime(decrStackSize(0, 1));
 						setActive(true);
 						return;
@@ -857,11 +864,11 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 						// mB, as reference.
 						int bitOFuel = Math.min(fuel.getAmount(), 5);
 						int additionalBurnTime = bitOFuel * 20;
-						Borkler.LOGGER.debug("Consuming " + bitOFuel + " mB of fuel "
-								+ fuel.getFluid().getRegistryName() + " for " + additionalBurnTime);
+						Borkler.LOGGER.info("Consuming " + bitOFuel + " mB of fuel " + fuel.getFluid().getRegistryName()
+								+ " for " + additionalBurnTime);
 						fuel.shrink(bitOFuel);
 						burnTime += additionalBurnTime;
-						Borkler.LOGGER.debug("Burn time increased: now " + burnTime);
+						Borkler.LOGGER.info("Burn time increased: now " + burnTime);
 						setActive(true);
 					}
 				}
@@ -921,7 +928,10 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		stuff.putString("fuelType", fuel.getFluid().getRegistryName().getPath());
 		stuff.putInt("fuelAmount", this.fuel.getAmount());
 		// stuff.put("fuelInv", solidFuel.write());
-		stuff.putString("solidFuelType", this.solidFuel.getStackInSlot(0).getItem().getRegistryName().getPath());
+		gazcreations.borkler.Borkler.LOGGER
+				.info("saving inventory: " + this.solidFuel.getStackInSlot(0).getItem().getRegistryName() + " x "
+						+ this.solidFuel.getStackInSlot(0).getCount());
+		stuff.putString("solidFuelType", this.solidFuel.getStackInSlot(0).getItem().getRegistryName().toString());
 		stuff.putInt("solidFuelAmount", this.solidFuel.getStackInSlot(0).getCount());
 		stuff.putBoolean("isActive", isActive);
 		stuff.putInt("burnTime", this.burnTime);
@@ -943,8 +953,44 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 						() -> ForgeRegistries.ITEMS.getValue(new ResourceLocation(nbt.getString("solidFuelType"))),
 						nbt.getInt("solidFuelAmount")));
 		// new Inventory(1).read((ListNBT) nbt.get("fuelInv"));
-		isActive = nbt.getBoolean("isActive");
+		setActive(nbt.getBoolean("isActive"));
 		burnTime = nbt.getInt("burnTime");
+		if (this.world != null)
+			updateFluidConnections();
+	}
+
+	@Override
+	public void onLoad() {
+		super.onLoad();
+		if (world != null && !world.isRemote())
+			addFutureServerTask(world, () -> updateFluidConnections(), true);
+
+	}
+
+	/**
+	 * This function was copied from the IE code because running
+	 * updateFluidConnections in onLoad would cause minecraft to hang indefinitely.
+	 * Let's see if this fixes it.
+	 * EDIT: it does. Genius.
+	 * 
+	 * @author BluSunrize of Immersive Engineering.
+	 * @param world
+	 * @param task
+	 * @param forceFuture
+	 */
+	public static void addFutureServerTask(World world, Runnable task, boolean forceFuture) {
+		LogicalSide side = world.isRemote ? LogicalSide.CLIENT : LogicalSide.SERVER;
+		// TODO this sometimes causes NPEs?
+		ThreadTaskExecutor<? super TickDelayedTask> tmp = LogicalSidedProvider.WORKQUEUE.get(side);
+		if (forceFuture) {
+			int tick;
+			if (world.isRemote)
+				tick = 0;
+			else
+				tick = ((MinecraftServer) tmp).getTickCounter();
+			tmp.enqueue(new TickDelayedTask(tick, task));
+		} else
+			tmp.deferTask(task);
 	}
 
 	/**

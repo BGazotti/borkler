@@ -55,7 +55,7 @@ public class BorklerContainer extends Container {
 				boolean valid = inventory.isItemValidForSlot(this.getSlotIndex(), stack);
 				if (!valid)
 					gazcreations.borkler.Borkler.LOGGER
-							.debug("An invalid item has been inserted into a Borkler special slot: "
+							.info("An invalid item has been inserted into a Borkler special slot: "
 									+ stack.getItem().getRegistryName());
 				return valid;
 			}
