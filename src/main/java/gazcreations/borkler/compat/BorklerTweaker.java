@@ -20,7 +20,7 @@
 package gazcreations.borkler.compat;
 
 /**
- * So, I can't possibly know what y'all will want to fuel this bad boy.
+ * So, I can't possibly know what y'all will want to fuel this bad boy with.
  * Hopefully, CraftTweaker allows for quick, in-game editing of recipes, and why
  * not make our boiler extra steamy and versatile?
  * 

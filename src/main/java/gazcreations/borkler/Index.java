@@ -19,6 +19,8 @@
 
 package gazcreations.borkler;
 
+import java.util.Objects;
+
 import gazcreations.borkler.blocks.BorklerBlock;
 import gazcreations.borkler.blocks.Steam;
 import gazcreations.borkler.blocks.SteamBlock;
@@ -26,8 +28,17 @@ import gazcreations.borkler.container.BorklerContainer;
 import gazcreations.borkler.entities.BorklerTileEntity;
 import gazcreations.borkler.items.BorklerItem;
 import gazcreations.borkler.items.SteamItem;
+import gazcreations.borkler.network.BorklerData;
+import io.netty.buffer.Unpooled;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.inventory.container.Container;
 import net.minecraft.inventory.container.ContainerType;
+import net.minecraft.inventory.container.ContainerType.IFactory;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fml.network.IContainerFactory;
 import net.minecraftforge.registries.ObjectHolder;
 
 /**
@@ -68,7 +79,20 @@ public abstract class Index {
 			.create(BorklerTileEntity::new, Index.Blocks.BORKLERBLOCK).build(null)
 			.setRegistryName("borkler", "borklertile");
 
-	@ObjectHolder(value = "borkler:borklertile")
-	public static final ContainerType<?> BORKLER_CONTAINER_TYPE = new ContainerType<BorklerContainer>(
-			BorklerContainer::new).setRegistryName("borkler", "borklertile");
+	private static <T extends Container> ContainerType<T> register(String name, IContainerFactory<T> containerFactory) {
+		return (ContainerType<T>) new ContainerType<>(containerFactory).setRegistryName("borkler", name);
+	}
+
+	@ObjectHolder(value = "borkler:borklercontainer")
+	public static final ContainerType<?> BORKLER_CONTAINER_TYPE = register("borklercontainer",
+			/*new IContainerFactory<BorklerContainer>() {
+
+				@Override
+				public BorklerContainer create(int windowId, PlayerInventory inv, PacketBuffer data) {
+					return new BorklerContainer(windowId, inv, data);
+				}
+			});*/
+			((windowId, inv, data) -> {
+				return new BorklerContainer(windowId, inv, data);
+			}));
 }

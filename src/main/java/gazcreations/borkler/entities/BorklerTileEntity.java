@@ -19,15 +19,19 @@
 
 package gazcreations.borkler.entities;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+
+import org.apache.commons.lang3.tuple.Pair;
 
 import gazcreations.borkler.Borkler;
 import gazcreations.borkler.BorklerConfig;
 import gazcreations.borkler.Index;
 import gazcreations.borkler.blocks.BorklerBlock;
 import gazcreations.borkler.container.BorklerContainer;
+import gazcreations.borkler.network.BorklerData;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
@@ -35,6 +39,7 @@ import net.minecraft.fluid.Fluid;
 import net.minecraft.fluid.Fluids;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.container.Container;
+import net.minecraft.inventory.container.INamedContainerProvider;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.server.MinecraftServer;
@@ -84,6 +89,11 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		validFuels.addAll(FluidTags.LAVA.getAllElements());
 	}
 
+	/**
+	 * The tier of this boiler. Currently unused.
+	 */
+	private byte tier;
+	
 	/**
 	 * Hereby referred interchangeably to as tank #0.
 	 */
@@ -147,6 +157,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 */
 	public BorklerTileEntity(IBlockReader world) {
 		super(Index.BORKLER_TE_TYPE);
+		this.tier = 0; //TODO implement tiers
 		this.water = new FluidStack(Fluids.WATER, 0);
 		this.fuel = new FluidStack(Fluids.EMPTY, 0);
 		this.steam = new FluidStack(Index.Fluids.STEAMSOURCE, 0);
@@ -601,7 +612,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 */
 	public void updateFluidConnections() {
 		Set<LazyOptional<IFluidHandler>> consumers = Collections
-				.synchronizedSet(new HashSet<LazyOptional<IFluidHandler>>(7) {
+				.synchronizedSet(new HashSet<LazyOptional<IFluidHandler>>(7, 0.99f) {
 					private static final long serialVersionUID = 1L;
 
 					public boolean add(LazyOptional<IFluidHandler> element) {
@@ -652,6 +663,22 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		gazcreations.borkler.Borkler.LOGGER
 				.info("Borkler @" + world + " ," + pos + "has updated its connections: " + consumers.toString());
 		this.fluidConnections = consumers;
+	}
+
+	/**
+	 * This method will attempt to output steam to a connected IFluidHandler. TODO:
+	 * what if there's multiple possible outputs?
+	 * 
+	 * @param destination
+	 */
+	public void pushSteam(IFluidHandler destination) {
+		int amount = destination.fill(steam, FluidAction.SIMULATE);
+		if (amount > 0) {
+			// oh look, we can output steam!
+			destination.fill(drain(amount, FluidAction.EXECUTE), FluidAction.EXECUTE);
+			// this.drain will invoke markDirty(), so we're good
+		}
+
 	}
 
 	/**
@@ -743,13 +770,12 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		// Okay. Since we're talking about a steam boiler, it only makes sense
 		// that whatever we drain here is steam, right?
 		// guys?
-		FluidStack selectedTank = steam;
-		if (selectedTank.getAmount() < drained) {
-			drained = selectedTank.getAmount();
+		if (steam.getAmount() < drained) {
+			drained = steam.getAmount();
 		}
-		FluidStack stack = new FluidStack(selectedTank, drained);
+		FluidStack stack = new FluidStack(steam, drained);
 		if (action.execute() && drained > 0) {
-			selectedTank.shrink(drained);
+			steam.shrink(drained);
 			markDirty();
 		}
 		return stack;
@@ -764,15 +790,22 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * Opens up a Container for interacting with this Boiler's inventory.
 	 */
 	@Override
-	protected Container createMenu(int id, PlayerInventory player) {
-		Borkler.LOGGER.info("Borkler @ " + pos + "clicked. Opening GUI shortly." + "\n"
-				+ "Inventory contents are as follows:\n" + solidFuel.getSizeInventory() + "slots;");
-		for (int i = 0; i < solidFuel.getSizeInventory(); i++)
-			Borkler.LOGGER.info("Slot" + i + ":" + solidFuel.getStackInSlot(i).getItem().getRegistryName() + "x "
-					+ solidFuel.getStackInSlot(i).getCount());
-		return new BorklerContainer(id, player, this.solidFuel);
+	public Container createMenu(int id, PlayerInventory playerInv, PlayerEntity player) {
+		BorklerContainer menu = new BorklerContainer(id, playerInv, this.solidFuel, getData());
+		return menu;
 	}
 
+	/**
+	 * @return A new BorklerData object from this TileEntity.
+	 */
+	public BorklerData getData() {
+		ArrayList<Pair<FluidStack, Integer>> pairs = new ArrayList<>(4);
+		pairs.add(Pair.of(water, getTankCapacity(0)));
+		pairs.add(Pair.of(fuel, getTankCapacity(1)));
+		pairs.add(Pair.of(steam, getTankCapacity(2)));
+		return new BorklerData(pairs, tier);
+	}
+	
 	/**
 	 * Credits to the folks at @TeamCofh for helping me make sense of this method.
 	 */
@@ -865,71 +898,76 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 					}
 				}
 			}
-			// the boiler will refuse to operate if it has no water.
-			if (water.isEmpty()) {
-				// Borkler.LOGGER.info("Boiler @" + pos + " shutting down due to lack of
-				// water");
-				setActive(false);
-				return;
-			}
-			if (steam.getAmount() == getTankCapacity(2)) {
-				// Borkler.LOGGER.info("Boiler @" + pos + " shutting down because its steam
-				// tank is full");
-				setActive(false);
-				return;
-
-			}
-			if (burnTime > 0) {
-				// so, we have water, the boiler is active, and the steam tank is not full. It's
-				// boiling time, boyos.
-				gazcreations.borkler.Borkler.LOGGER.info("Boiler is powered: " + burnTime);
-				boil();
-
-			} else {
-				burnTime = 0;
-				// OK, so we're not currently burning fuel. Is there anything to burn, though?
-				if (solidFuel.isEmpty() && fuel.isEmpty()) {
-					// there's no liquid or solid fuel present. Boiler will be turned off.
-					setActive(false);
-					return;
-				}
-				if (!solidFuel.isEmpty()) {
-					// OK, so there's solid fuel in the boiler. We'll try to burn this.
-					// Fuel has been checked for burnability before being placed in the inventory.
-					// This will remove one piece of fuel from the inventory and power the boiler
-					// for its burnTime ticks.
-					// EDIT: just found out that this will not work because of minecraft things.
-					// I've yet to find a way to fix it. TODO .
-					// burnTime += decrStackSize(0, 1).getBurnTime();
-					// Borkler.LOGGER.info("Burn time increased: now " + burnTime);
-					// setActive(true);
-					// return;
-					int additionalBurnTime = ForgeHooks.getBurnTime(getStackInSlot(0));
-					if (additionalBurnTime > 0) {
-						gazcreations.borkler.Borkler.LOGGER
-								.info("Consuming 1 " + getStackInSlot(0).getItem() + " for " + additionalBurnTime);
-						burnTime += ForgeHooks.getBurnTime(decrStackSize(0, 1));
-						setActive(true);
-						return;
-					}
-				}
-				if (!fuel.isEmpty()) {
-					// ok, there is liquid fuel in the boiler. We'll try to burn this.
-					if (fuel.getFluid().isEquivalentTo(Fluids.LAVA)) {
-						// Determining burn time for lava is tricky. Let's use the lava bucket, or 1000
-						// mB, as reference.
-						int bitOFuel = Math.min(fuel.getAmount(), 5);
-						int additionalBurnTime = bitOFuel * 20;
-						Borkler.LOGGER.info("Consuming " + bitOFuel + " mB of fuel " + fuel.getFluid().getRegistryName()
-								+ " for " + additionalBurnTime);
-						fuel.shrink(bitOFuel);
-						burnTime += additionalBurnTime;
-						Borkler.LOGGER.info("Burn time increased: now " + burnTime);
-						setActive(true);
+		}
+		// now, to push steam.
+		// God, I hope this doesn't break pipes.
+		synchronized (fluidConnections) {
+			for (LazyOptional<IFluidHandler> consumer : fluidConnections) {
+				if (consumer.isPresent()) {
+					// found a possible consumer!
+					IFluidHandler f = consumer.orElse(null);
+					if (f != null) {
+						pushSteam(f);
 					}
 				}
 			}
 		}
+		// the boiler will refuse to operate if it has no water.
+		if (water.isEmpty()) {
+			// Borkler.LOGGER.info("Boiler @" + pos + " shutting down due to lack of
+			// water");
+			setActive(false);
+			return;
+		}
+		if (steam.getAmount() == getTankCapacity(2)) {
+			// Borkler.LOGGER.info("Boiler @" + pos + " shutting down because its steam
+			// tank is full");
+			setActive(false);
+			return;
+
+		}
+		if (burnTime > 0) {
+			// so, we have water, the boiler is active, and the steam tank is not full. It's
+			// boiling time, boyos.
+			gazcreations.borkler.Borkler.LOGGER.info("Boiler is powered: " + burnTime);
+			boil();
+
+		} else {
+			burnTime = 0;
+			// OK, so we're not currently burning fuel. Is there anything to burn, though?
+			if (solidFuel.isEmpty() && fuel.isEmpty()) {
+				// there's no liquid or solid fuel present. Boiler will be turned off.
+				setActive(false);
+				return;
+			}
+			if (!solidFuel.isEmpty()) {
+				// there's solid fuel in the burner. Let's try to burn this.
+				int additionalBurnTime = ForgeHooks.getBurnTime(getStackInSlot(0));
+				if (additionalBurnTime > 0) {
+					gazcreations.borkler.Borkler.LOGGER
+							.info("Consuming 1 " + getStackInSlot(0).getItem() + " for " + additionalBurnTime);
+					burnTime += ForgeHooks.getBurnTime(decrStackSize(0, 1));
+					setActive(true);
+					return;
+				}
+			}
+			if (!fuel.isEmpty()) {
+				// ok, there is liquid fuel in the boiler. We'll try to burn this.
+				if (fuel.getFluid().isEquivalentTo(Fluids.LAVA)) {
+					// Determining burn time for lava is tricky. Let's use the lava bucket, or 1000
+					// mB, as reference.
+					int bitOFuel = Math.min(fuel.getAmount(), 5);
+					int additionalBurnTime = bitOFuel * 20;
+					Borkler.LOGGER.info("Consuming " + bitOFuel + " mB of fuel " + fuel.getFluid().getRegistryName()
+							+ " for " + additionalBurnTime);
+					fuel.shrink(bitOFuel);
+					burnTime += additionalBurnTime;
+					Borkler.LOGGER.info("Burn time increased: now " + burnTime);
+					setActive(true);
+				}
+			}
+		}
+
 	}
 
 	/**
@@ -1091,5 +1129,10 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		if (itemHandlerCapability != null)
 			itemHandlerCapability.invalidate();
 		super.invalidateCaps();
+	}
+
+	@Override
+	public Container createMenu(int id, PlayerInventory player) {
+		return this.createMenu(id, player, player.player);
 	}
 }

@@ -19,11 +19,11 @@
 
 package gazcreations.borkler.blocks;
 
+import java.util.function.Consumer;
 import java.util.function.ToIntFunction;
 
-import javax.annotation.Nullable;
-
 import gazcreations.borkler.entities.BorklerTileEntity;
+import gazcreations.borkler.network.BorklerData;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.ILiquidContainer;
@@ -31,11 +31,12 @@ import net.minecraft.block.SoundType;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.fluid.Fluid;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.inventory.InventoryHelper;
-import net.minecraft.inventory.container.INamedContainerProvider;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.PacketBuffer;
 import net.minecraft.state.BooleanProperty;
 import net.minecraft.state.StateContainer;
 import net.minecraft.tileentity.TileEntity;
@@ -50,6 +51,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.ToolType;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
+import net.minecraftforge.fml.network.NetworkHooks;
 
 /**
  * The Boiler, ladies, gentlemen and everyone in between.
@@ -114,11 +116,21 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	public ActionResultType onBlockActivated(BlockState state, World worldIn, BlockPos pos, PlayerEntity player,
 			Hand handIn, BlockRayTraceResult hit) {
 		if (!worldIn.isRemote) {
+			BorklerTileEntity te = getTileEntity(worldIn, pos);
+			NetworkHooks.openGui((ServerPlayerEntity) player, te, new Consumer<PacketBuffer>() {
+
+				@Override
+				public void accept(PacketBuffer t) {
+					BorklerData.encode(te.getData(), t);
+					
+				}
+			});
 			// TODO implement GUI stuff
-			INamedContainerProvider inamedcontainerprovider = this.getContainer(state, worldIn, pos);
-			if (inamedcontainerprovider != null) {
-				player.openContainer(inamedcontainerprovider);
-			}
+			/*
+			 * INamedContainerProvider inamedcontainerprovider = this.getContainer(state,
+			 * worldIn, pos); if (inamedcontainerprovider != null) {
+			 * player.openContainer(inamedcontainerprovider); }
+			 */
 
 		}
 		return ActionResultType.SUCCESS;
@@ -127,13 +139,13 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	/**
 	 * Gets the Container, which is essentially a way for interacting with this
 	 * block's TileEntity inventory.
-	 */
+	 *
 	@Override
 	@Nullable
 	public INamedContainerProvider getContainer(BlockState state, World world, BlockPos pos) {
 		TileEntity tileentity = world.getTileEntity(pos);
 		return tileentity instanceof INamedContainerProvider ? (INamedContainerProvider) tileentity : null;
-	}
+	}*/
 
 	/**
 	 * @return true; see {@link BorklerTileEntity}

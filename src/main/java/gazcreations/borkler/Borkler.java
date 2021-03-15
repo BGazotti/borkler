@@ -20,19 +20,29 @@
 package gazcreations.borkler;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import gazcreations.borkler.container.BorklerContainer;
+import gazcreations.borkler.entities.BorklerTileEntity;
+import gazcreations.borkler.network.BorklerData;
+import gazcreations.borkler.network.BorklerPacketHandler;
 import gazcreations.borkler.proxy.ClientProxy;
+import io.netty.buffer.Unpooled;
 import net.minecraft.block.Block;
 import net.minecraft.fluid.Fluid;
+import net.minecraft.inventory.container.Container;
 import net.minecraft.inventory.container.ContainerType;
 import net.minecraft.item.Item;
+import net.minecraft.network.PacketBuffer;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegistryEvent;
@@ -47,6 +57,7 @@ import net.minecraftforge.fml.event.lifecycle.InterModEnqueueEvent;
 import net.minecraftforge.fml.event.lifecycle.InterModProcessEvent;
 import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.network.IContainerFactory;
 
 /**
  * Welcome to Borkler!
@@ -74,18 +85,19 @@ public class Borkler {
 	/**
 	 * Just a constructor. Nothing to see here, move along.
 	 * <p>
-	 * JK. Here we set listeners for the basic methods of the mod, register our config file, and may do other
-	 * stuff. WIP.
+	 * JK. Here we set listeners for the basic methods of the mod, register our
+	 * config file, and may do other stuff. WIP.
 	 * </p>
 	 */
 	public Borkler() {
 		BUS = FMLJavaModLoadingContext.get().getModEventBus();
 		// Register the setup method for modloading
 		BUS.addListener(this::setup);
+		BUS.addListener(BorklerPacketHandler::registerChannel);
 		// Register the enqueueIMC method for modloading
-		//BUS.addListener(this::enqueueIMC);
+		// BUS.addListener(this::enqueueIMC);
 		// Register the processIMC method for modloading
-		//BUS.addListener(this::processIMC);
+		// BUS.addListener(this::processIMC);
 		// Registers methods for running on the client only
 		DistExecutor.safeRunWhenOn(Dist.CLIENT, new ClientProxy());
 		// Register ourselves for server and other game events we are interested in
@@ -111,11 +123,11 @@ public class Borkler {
 	}
 
 	private void onPlayerLogin(final PlayerLoggedInEvent event) {
-		//generateServerBurnTimeConfig()
-		//sendServerBurnTimesToPlayers(List)
-		//updateClientBurnablesList
+		// generateServerBurnTimeConfig()
+		// sendServerBurnTimesToPlayers(List)
+		// updateClientBurnablesList
 	}
-	
+
 	private void enqueueIMC(final InterModEnqueueEvent event) {
 		// some example code to dispatch IMC to another mod
 		// InterModComms.sendTo("borkler", "helloworld", () -> {

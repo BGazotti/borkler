@@ -19,7 +19,13 @@
 
 package gazcreations.borkler.container;
 
+import java.util.List;
+
+import org.apache.commons.lang3.tuple.Pair;
+
 import gazcreations.borkler.Index;
+import gazcreations.borkler.network.BorklerData;
+import gazcreations.borkler.network.BorklerPacketHandler;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.IInventory;
@@ -27,13 +33,16 @@ import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.container.Container;
 import net.minecraft.inventory.container.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.PacketBuffer;
+import net.minecraftforge.fluids.FluidStack;
 
 public class BorklerContainer extends Container {
 
 	private IInventory borklerInventory;
+	private List<Pair<FluidStack, Integer>> tanksWithCapacity;
 
-	public BorklerContainer(int id, PlayerInventory playerInv) {
-		this(id, playerInv, new Inventory(1));
+	public BorklerContainer(int id, PlayerInventory playerInv, PacketBuffer data) {
+		this(id, playerInv, new Inventory(1), BorklerData.decode(data));
 	}
 
 	/**
@@ -44,7 +53,7 @@ public class BorklerContainer extends Container {
 	 * @param playerInv
 	 * @param Ideally,  a BorklerTileEntity
 	 */
-	public BorklerContainer(int id, PlayerInventory playerInv, IInventory inventory) {
+	public BorklerContainer(int id, PlayerInventory playerInv, IInventory inventory, BorklerData data) {
 		super(Index.BORKLER_CONTAINER_TYPE, id);
 		this.borklerInventory = inventory;
 		borklerInventory.openInventory(playerInv.player);
@@ -55,7 +64,7 @@ public class BorklerContainer extends Container {
 				boolean valid = inventory.isItemValidForSlot(this.getSlotIndex(), stack);
 				if (!valid)
 					gazcreations.borkler.Borkler.LOGGER
-							.info("An invalid item has been inserted into a Borkler special slot: "
+							.debug("An invalid item has been inserted into a Borkler special slot: "
 									+ stack.getItem().getRegistryName());
 				return valid;
 			}
@@ -79,6 +88,12 @@ public class BorklerContainer extends Container {
 		for (int hotbarSlot = 0; hotbarSlot < 9; hotbarSlot++) {
 			addSlot(new Slot(playerInv, hotbarSlot, leftCol + hotbarSlot * 18, 127));
 		}
+		if (data != null) {
+			gazcreations.borkler.Borkler.LOGGER.debug("player is " + playerInv.player.getScoreboardName());
+			gazcreations.borkler.Borkler.LOGGER.debug("container is " + playerInv.player.openContainer.toString());
+			gazcreations.borkler.Borkler.LOGGER.debug("data is " + data.getTanks().toString());
+			this.tanksWithCapacity = data.getTanks();
+		}
 	}
 
 	@Override
@@ -94,13 +109,13 @@ public class BorklerContainer extends Container {
 
 	@Override
 	public void putStackInSlot(int index, ItemStack stack) {
-		if (index == 0) { //Borkler Special Slot. Running extra checks.
+		if (index == 0) { // Borkler Special Slot. Running extra checks.
 			if (!getSlot(0).isItemValid(stack))
 				return;
 		}
 		super.putStackInSlot(index, stack);
 	}
-	
+
 	/**
 	 * Handles shift+click logic.
 	 */
@@ -130,4 +145,14 @@ public class BorklerContainer extends Container {
 		return itemstack;
 	}
 
+	/**
+	 * @return
+	 */
+	public final List<Pair<FluidStack, Integer>> getTanks() {
+		return this.tanksWithCapacity;
+	}
+
+	public void setTanks(List<Pair<FluidStack, Integer>> tanks) {
+		this.tanksWithCapacity = tanks;
+	}
 }
