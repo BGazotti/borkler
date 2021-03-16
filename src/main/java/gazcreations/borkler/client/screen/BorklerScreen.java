@@ -19,9 +19,9 @@
 
 package gazcreations.borkler.client.screen;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
 import javax.annotation.Nonnull;
 
@@ -31,13 +31,15 @@ import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import gazcreations.borkler.container.BorklerContainer;
-import gazcreations.borkler.network.BorklerData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.IGuiEventListener;
 import net.minecraft.client.gui.IHasContainer;
 import net.minecraft.client.gui.screen.inventory.ContainerScreen;
+import net.minecraft.client.renderer.texture.AtlasTexture;
 import net.minecraft.client.renderer.texture.Texture;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.inventory.container.PlayerContainer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.util.ResourceLocation;
@@ -47,7 +49,6 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fml.client.gui.GuiUtils;
-import net.minecraftforge.fml.network.NetworkEvent.Context;
 
 /**
  * A GUI for the player to interact with the Steam Boiler. The possibilities are
@@ -59,7 +60,10 @@ import net.minecraftforge.fml.network.NetworkEvent.Context;
 @OnlyIn(Dist.CLIENT)
 public class BorklerScreen extends ContainerScreen<BorklerContainer> implements IHasContainer<BorklerContainer> {
 
-	private List<Pair<FluidStack, Integer>> fluids; // TODO get these via packet
+	private static final ResourceLocation guiTexture = new ResourceLocation("borkler", "textures/gui/steam_boiler.png");
+	private static final ResourceLocation overlayTexture = new ResourceLocation("borkler",
+			"textures/gui/boiler_overlay.png");
+	private List<Pair<FluidStack, Integer>> fluids;
 	private TankSimulator[] tanks;
 
 	/**
@@ -72,7 +76,6 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 	 */
 	public BorklerScreen(BorklerContainer screenContainer, PlayerInventory inv, ITextComponent titleIn) {
 		super(screenContainer, inv, titleIn);
-		// TODO Auto-generated constructor stub
 		this.xSize = 184;
 		this.ySize = 151;
 		fluids = screenContainer.getTanks();
@@ -88,21 +91,27 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 
 	private void initTanks(int width, int height) {
 		this.tanks = new TankSimulator[3];
-		for (int i = 0; i < fluids.size(); i++) { // 208,55
-			/**
-			 * these magic numbers came up while I was configuring the screen for an
-			 * arbitrary size
+		for (int i = 0; i < fluids.size(); i++) {
+			/*
+			 * These magic numbers came up while I was configuring the screen for an
+			 * arbitrary size. Think of them as... correction factors. Yup, that's it.
 			 */
 			tanks[i] = new TankSimulator(this, fluids.get(i).getKey(), fluids.get(i).getValue(),
 					(width / 2) - 5 + (width / 427) * (i * 32), (height / 2) - 65);
 		}
 	}
 
+	/**
+	 * A much needed override to resize tanks when the game window is resized.
+	 */
 	public void init(Minecraft minecraft, int width, int height) {
 		super.init(minecraft, width, height);
 		this.initTanks(width, height);
 	}
 
+	/**
+	 * Will draw default tooltips for items and for the fluids in the tanks.
+	 */
 	@Override
 	protected void renderHoveredTooltip(MatrixStack matrixStack, int x, int y) {
 		if (this.minecraft.player.inventory.getItemStack().isEmpty() && this.hoveredSlot != null
@@ -115,11 +124,11 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 					if (!tank.fluid.isEmpty()) {
 						text.add(tank.fluid.getDisplayName());
 						text.add(new StringTextComponent(String.valueOf(tank.fluid.getAmount()) + " mB"));
-					}
-					else
+					} else
 						text.add(new StringTextComponent("Empty"));
+					// Not sure if this needs to be called, but still, documentation suggests it
 					GuiUtils.preItemToolTip(new ItemStack(() -> Items.ACACIA_BOAT, 1));
-					GuiUtils.drawHoveringText(matrixStack, text, x, y, width, height, 30, font);
+					GuiUtils.drawHoveringText(matrixStack, text, x, y, width, height, 47, font);
 					GuiUtils.postItemToolTip();
 				}
 			}
@@ -129,18 +138,63 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 	@Override
 	protected void drawGuiContainerForegroundLayer(MatrixStack matrixStack, int mouseX, int mouseY) {
 		this.font.func_243248_b(matrixStack, this.title, 8.0F, 6.0F, 4210752);
-
 		this.font.func_243248_b(matrixStack, this.playerInventory.getDisplayName(), 8.0F, (float) (this.ySize - 96 + 2),
 				4210752);
+	}
+
+	/**
+	 * Will draw a tank with its fluid and level on the screen.
+	 * 
+	 * @param tank        the TankSimulator to draw with liquid and overlay
+	 * @param doubleScale Whether to use a doubly-graduated scale for the tank. Used
+	 *                    for steam.
+	 */
+	private void drawTank(MatrixStack matrixStack, TankSimulator tank, boolean doubleScale) {
+		if (tank.fluid.isEmpty())
+			return; // will not draw an empty tank
+		/*
+		 * Let's isolate our variables for a prettier method call.
+		 * 
+		 * Tank render size is calculated based on the amount of fluid present. We will
+		 * subtract 2 pixels from that result to respect the tank's borders (cosmetic
+		 * effect).
+		 */
+		int ySize = (int) Math.ceil(tank.sizeY * tank.getFilledFraction()) - 2;
+		/*
+		 * The fluid's initial y position is calculated using the size of the containing
+		 * area and just how much fluid there's in it, minus one pixel for correction.
+		 */
+		int yPos = tank.posY + tank.sizeY - ySize - 1;
+
+		RenderSystem.color4f(tank.fluidColor.getRed() / 255f, tank.fluidColor.getGreen() / 255f,
+				tank.fluidColor.getBlue() / 255f, tank.fluidColor.getAlpha() / 255f);
+		RenderSystem.enableBlend();
+		getMinecraft().getTextureManager().bindTexture(PlayerContainer.LOCATION_BLOCKS_TEXTURE);
+		/*
+		 * Again, we will subtract two pixels from the tank's X size and dislocate it to
+		 * the right.
+		 */
+		blit(matrixStack, tank.posX + 1, yPos, 0, tank.sizeX - 2, ySize, tank.fluidSprite);
+		RenderSystem.disableBlend();
+		RenderSystem.color4f(1, 1, 1, 1);
+		getMinecraft().getTextureManager().bindTexture(overlayTexture);
+		/*
+		 * This offset tells the texture manager where to look for the tank overlay in
+		 * the gui texture file.
+		 */
+		int yOffset = 0;
+		if (!doubleScale)
+			yOffset = 49;
+		blit(matrixStack, tank.posX, tank.posY, 0, yOffset, tank.sizeX, tank.sizeY);
+
 	}
 
 	@Override
 	public void render(MatrixStack matrixStack, int mouseX, int mouseY, float partialTicks) {
 		this.renderBackground(matrixStack);
 		super.render(matrixStack, mouseX, mouseY, partialTicks);
-		for (TankSimulator tank : tanks) {
-			GuiUtils.drawContinuousTexturedBox(matrixStack, tank.posX, tank.posY, 0, 0, tank.sizeX, tank.sizeY, 16, 16,
-					0, 0.9F);
+		for (int i = 0; i < 3; i++) {
+			drawTank(matrixStack, tanks[i], i == 2);
 		}
 		this.renderHoveredTooltip(matrixStack, mouseX, mouseY);
 	}
@@ -148,20 +202,15 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 	@Override
 	protected void drawGuiContainerBackgroundLayer(MatrixStack matrixStack, float partialTicks, int x, int y) {
 		RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-		this.minecraft.getTextureManager()
-				.bindTexture(new ResourceLocation("borkler", "textures/gui/steam_boiler.png"));
+		this.minecraft.getTextureManager().bindTexture(guiTexture);
 		blit(matrixStack, (this.width - this.xSize) / 2, (this.height - this.ySize) / 2, 0, 0, 256, 256);
 	}
-
-	public void handleDataPacket(BorklerData data, Supplier<Context> ctx) {
-
-	}
-
+//TODO i think i found a way to make this auto-update, maybe add a listener of some sort
 	class TankSimulator implements IGuiEventListener {
 		private FluidStack fluid;
 		private int capacity;
-		private ResourceLocation fluidTexture;
-		private int fluidColor;
+		private TextureAtlasSprite fluidSprite;
+		private Color fluidColor;
 		private BorklerScreen screen;
 		private int posX;
 		private int posY;
@@ -171,11 +220,11 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 		/**
 		 * Please do not supply null fluids to this tank. Use {@link FluidStack#EMPTY}.
 		 * 
-		 * @param screen
-		 * @param fluid
-		 * @param capacity
-		 * @param posX
-		 * @param posY
+		 * @param screen   The containing screen.
+		 * @param fluid    The {@link FluidStack} in this tank.
+		 * @param capacity This tank's capacity. For rendering purposes.
+		 * @param posX     This tank's left boundary.
+		 * @param posY     This tank's upper boundary.
 		 */
 		public TankSimulator(BorklerScreen screen, @Nonnull FluidStack fluid, int capacity, int posX, int posY) {
 			this.fluid = fluid;
@@ -185,11 +234,14 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 			this.posY = posY;
 			this.sizeX = 18;
 			this.sizeY = 49;
-			getFluidTexture();
-			screen.addListener(this);
+			setFluidTexture();
+			screen.addListener(this); // this is done so that the tanks can be resized
 
 		}
 
+		/**
+		 * Gets whether the mouse is currently over this TankSimulator's area.
+		 */
 		public boolean isMouseOver(double mouseX, double mouseY) {
 			return mouseX >= this.posX && mouseX < this.posX + this.sizeX && mouseY >= this.posY
 					&& mouseY < this.posY + this.sizeY;
@@ -198,9 +250,17 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 		/**
 		 * Gets the texture and color for this TankSimulator's fluid.
 		 */
-		private void getFluidTexture() {
-			fluidTexture = fluid.getFluid().getAttributes().getStillTexture();
-			fluidColor = fluid.getFluid().getAttributes().getColor();
+		private void setFluidTexture() {
+			if (fluid.isEmpty()) {
+				fluidColor = new Color(0);
+				return;
+			}
+			Texture txtr = Minecraft.getInstance().getTextureManager()
+					.getTexture(PlayerContainer.LOCATION_BLOCKS_TEXTURE);
+			if (txtr instanceof AtlasTexture) {
+				fluidSprite = ((AtlasTexture) txtr).getSprite(fluid.getFluid().getAttributes().getStillTexture());
+			}
+			fluidColor = new Color(fluid.getFluid().getAttributes().getColor());
 		}
 
 		/**
@@ -209,7 +269,7 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 		 */
 		private double getFilledFraction() {
 			try {
-				return fluid.getAmount() / capacity;
+				return fluid.getAmount() / (double) capacity;
 			} catch (ArithmeticException singularity) {
 				// yeah i see ya trying to divide by zero. Oh wait, that's me.
 				return 0;

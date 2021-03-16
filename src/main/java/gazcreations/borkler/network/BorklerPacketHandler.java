@@ -21,6 +21,7 @@ package gazcreations.borkler.network;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.chunk.Chunk;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.network.NetworkRegistry;
@@ -54,12 +55,15 @@ public class BorklerPacketHandler {
 		INSTANCE = NetworkRegistry.newSimpleChannel(new ResourceLocation("borkler", "main"), () -> PROTOCOL_VERSION,
 				PROTOCOL_VERSION::equals, PROTOCOL_VERSION::equals);
 		INSTANCE.registerMessage(id, BorklerData.class, BorklerData::encode, BorklerData::decode,
-				BorklerData::handlePacket);
+				BorklerData::handlePacket);//TODO implement?
 		id++;
-		// init();
 	}
 
 	public static final void sendToPlayer(PlayerEntity player, Object message) {
 		INSTANCE.send(PacketDistributor.PLAYER.with(() -> (ServerPlayerEntity) player), message);
+	}
+
+	public static final void sendToChunk(Chunk chunk, Object message) {
+		INSTANCE.send(PacketDistributor.TRACKING_CHUNK.with(() -> chunk), message);
 	}
 }

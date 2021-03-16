@@ -29,50 +29,53 @@ import org.apache.commons.lang3.tuple.Pair;
 import gazcreations.borkler.container.BorklerContainer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.inventory.container.Container;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fml.network.NetworkEvent.Context;
 
 /**
- * A simplified class, containing the fluid and tier data for a given Steam
- * Boiler.
+ * A simplified class, containing the fluid and position data for a given Steam
+ * Boiler.<br>
+ * Used in networking.
  * 
  * @author gazotti
+ * @deprecated TODO use NBTs for this purpose
  *
  */
 public class BorklerData {
 
 	@Nonnull
+	private BlockPos pos;
+	@Nonnull
 	private List<Pair<FluidStack, Integer>> tanks;
-	private byte tier;
 
-	public BorklerData(List<Pair<FluidStack, Integer>> tanks, byte tier) {
+	public BorklerData(BlockPos pos, List<Pair<FluidStack, Integer>> tanks) {
+		this.pos = pos;
 		this.tanks = tanks;
-		this.tier = tier;
 	}
 
 	public List<Pair<FluidStack, Integer>> getTanks() {
 		return tanks;
 	}
 
-	public void setTier(byte tier) {
-		this.tier = tier;
+	public void setPos(BlockPos pos) {
+		this.pos = pos;
 	}
-	
-	public byte getTier() {
-		return tier;
+
+	public BlockPos getPos() {
+		return pos;
 	}
 
 	/**
-	 * BorklerData is as follows: byte(tier), 3x Pair <fluidStack(fluids),
-	 * int(capacity)> <br>
-	 * The Pairs are written as separate FluidStack and Integer values.
+	 * BorklerData is as follows: BlockPos, 3x (fluidStack, int(capacity)) <br>
 	 * 
 	 * @param data   BorklerData object to encode
 	 * @param packet The PacketBuffer to write to
 	 */
 	public static void encode(BorklerData data, PacketBuffer packet) {
-		packet.writeByte(data.getTier());
+		packet.writeBlockPos(data.getPos());
 		for (Pair<FluidStack, Integer> p : data.getTanks()) {
 			packet.writeFluidStack(p.getKey());
 			packet.writeInt(p.getValue());
@@ -87,15 +90,23 @@ public class BorklerData {
 	 */
 	public static BorklerData decode(PacketBuffer packet) {
 		ArrayList<Pair<FluidStack, Integer>> tanks = new ArrayList<>(4);
-		byte tier = packet.readByte();
+		BlockPos pos = packet.readBlockPos();
 		while (packet.isReadable()) {
 			tanks.add(Pair.of(packet.readFluidStack(), packet.readInt()));
 		}
-		return new BorklerData(tanks, tier);
+		return new BorklerData(pos, tanks);
 	}
 
+	public static CompoundNBT decodeToNBT(PacketBuffer packet) {
+		return null;
+	}
+	//TODO the switch will be made. Need the full CompoundNBT, not just custom tags.
+	public static void encode(CompoundNBT data, PacketBuffer packet) {
+		packet.writeCompoundTag(data);
+	}
+	
 	/**
-	 * This is where the magic happens.
+	 * This is where the magic happens. TODO implement. Magic is not happening yet.
 	 * 
 	 * @param data
 	 * @param context
@@ -104,9 +115,8 @@ public class BorklerData {
 		Context context = contextSupplier.get();
 		context.enqueueWork(() -> {
 			Container container = Minecraft.getInstance().player.openContainer;
-			gazcreations.borkler.Borkler.LOGGER.debug("player is " + Minecraft.getInstance().player.getScoreboardName());
-			gazcreations.borkler.Borkler.LOGGER.debug("container is " + container.toString());
-			if (container != null && container instanceof BorklerContainer) { //TODO for some reason the container is not a BorklerContainer?
+			if (container != null && container instanceof BorklerContainer) { // TODO for some reason the container is
+																				// not a BorklerContainer?
 				BorklerContainer bc = (BorklerContainer) container;
 				bc.setTanks(data.tanks);
 			}

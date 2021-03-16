@@ -20,33 +20,23 @@
 package gazcreations.borkler;
 
 import java.util.HashSet;
-import java.util.Objects;
 import java.util.function.Supplier;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import gazcreations.borkler.container.BorklerContainer;
-import gazcreations.borkler.entities.BorklerTileEntity;
-import gazcreations.borkler.network.BorklerData;
 import gazcreations.borkler.network.BorklerPacketHandler;
 import gazcreations.borkler.proxy.ClientProxy;
-import io.netty.buffer.Unpooled;
 import net.minecraft.block.Block;
 import net.minecraft.fluid.Fluid;
-import net.minecraft.inventory.container.Container;
 import net.minecraft.inventory.container.ContainerType;
 import net.minecraft.item.Item;
-import net.minecraft.network.PacketBuffer;
 import net.minecraft.tags.FluidTags;
-import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegistryEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
@@ -57,7 +47,6 @@ import net.minecraftforge.fml.event.lifecycle.InterModEnqueueEvent;
 import net.minecraftforge.fml.event.lifecycle.InterModProcessEvent;
 import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.network.IContainerFactory;
 
 /**
  * Welcome to Borkler!
@@ -120,12 +109,6 @@ public class Borkler {
 		steamTypes.add(() -> Index.Fluids.STEAM);
 		steamTypes.add(() -> Index.Fluids.STEAMSOURCE);
 		FluidTags.createOptional(steam, steamTypes);
-	}
-
-	private void onPlayerLogin(final PlayerLoggedInEvent event) {
-		// generateServerBurnTimeConfig()
-		// sendServerBurnTimesToPlayers(List)
-		// updateClientBurnablesList
 	}
 
 	private void enqueueIMC(final InterModEnqueueEvent event) {

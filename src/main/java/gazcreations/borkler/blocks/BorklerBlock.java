@@ -19,7 +19,6 @@
 
 package gazcreations.borkler.blocks;
 
-import java.util.function.Consumer;
 import java.util.function.ToIntFunction;
 
 import gazcreations.borkler.entities.BorklerTileEntity;
@@ -36,7 +35,6 @@ import net.minecraft.fluid.Fluid;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.inventory.InventoryHelper;
 import net.minecraft.item.ItemStack;
-import net.minecraft.network.PacketBuffer;
 import net.minecraft.state.BooleanProperty;
 import net.minecraft.state.StateContainer;
 import net.minecraft.tileentity.TileEntity;
@@ -117,14 +115,17 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 			Hand handIn, BlockRayTraceResult hit) {
 		if (!worldIn.isRemote) {
 			BorklerTileEntity te = getTileEntity(worldIn, pos);
-			NetworkHooks.openGui((ServerPlayerEntity) player, te, new Consumer<PacketBuffer>() {
+			NetworkHooks.openGui((ServerPlayerEntity) player, te, ((t) -> {
+				BorklerData.encode(te.getData(), t);
+			}));
+			/*NetworkHooks.openGui((ServerPlayerEntity) player, te, new Consumer<PacketBuffer>() {
 
 				@Override
 				public void accept(PacketBuffer t) {
 					BorklerData.encode(te.getData(), t);
-					
+
 				}
-			});
+			});*/
 			// TODO implement GUI stuff
 			/*
 			 * INamedContainerProvider inamedcontainerprovider = this.getContainer(state,
@@ -140,12 +141,13 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	 * Gets the Container, which is essentially a way for interacting with this
 	 * block's TileEntity inventory.
 	 *
-	@Override
-	@Nullable
-	public INamedContainerProvider getContainer(BlockState state, World world, BlockPos pos) {
-		TileEntity tileentity = world.getTileEntity(pos);
-		return tileentity instanceof INamedContainerProvider ? (INamedContainerProvider) tileentity : null;
-	}*/
+	 * @Override
+	 * @Nullable public INamedContainerProvider getContainer(BlockState state, World
+	 *           world, BlockPos pos) { TileEntity tileentity =
+	 *           world.getTileEntity(pos); return tileentity instanceof
+	 *           INamedContainerProvider ? (INamedContainerProvider) tileentity :
+	 *           null; }
+	 */
 
 	/**
 	 * @return true; see {@link BorklerTileEntity}

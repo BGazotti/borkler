@@ -25,7 +25,6 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import gazcreations.borkler.Index;
 import gazcreations.borkler.network.BorklerData;
-import gazcreations.borkler.network.BorklerPacketHandler;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.IInventory;
@@ -34,12 +33,14 @@ import net.minecraft.inventory.container.Container;
 import net.minecraft.inventory.container.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.fluids.FluidStack;
 
 public class BorklerContainer extends Container {
 
 	private IInventory borklerInventory;
 	private List<Pair<FluidStack, Integer>> tanksWithCapacity;
+	private BlockPos tileEntityPos; // TODO add reference to TileEntity, might be needed for networking
 
 	public BorklerContainer(int id, PlayerInventory playerInv, PacketBuffer data) {
 		this(id, playerInv, new Inventory(1), BorklerData.decode(data));
@@ -47,7 +48,7 @@ public class BorklerContainer extends Container {
 
 	/**
 	 * Initializes the Borkler Container with its internal inventory, as well as the
-	 * player's.
+	 * player's, and an associated Borkler's data.
 	 * 
 	 * @param id
 	 * @param playerInv
@@ -89,10 +90,8 @@ public class BorklerContainer extends Container {
 			addSlot(new Slot(playerInv, hotbarSlot, leftCol + hotbarSlot * 18, 127));
 		}
 		if (data != null) {
-			gazcreations.borkler.Borkler.LOGGER.debug("player is " + playerInv.player.getScoreboardName());
-			gazcreations.borkler.Borkler.LOGGER.debug("container is " + playerInv.player.openContainer.toString());
-			gazcreations.borkler.Borkler.LOGGER.debug("data is " + data.getTanks().toString());
 			this.tanksWithCapacity = data.getTanks();
+			this.tileEntityPos = data.getPos();
 		}
 	}
 
@@ -145,14 +144,19 @@ public class BorklerContainer extends Container {
 		return itemstack;
 	}
 
-	/**
-	 * @return
-	 */
 	public final List<Pair<FluidStack, Integer>> getTanks() {
 		return this.tanksWithCapacity;
 	}
 
 	public void setTanks(List<Pair<FluidStack, Integer>> tanks) {
 		this.tanksWithCapacity = tanks;
+	}
+
+	public BlockPos getTileEntityPos() {
+		return tileEntityPos;
+	}
+
+	public void setTileEntityPos(BlockPos tileEntityPos) {
+		this.tileEntityPos = tileEntityPos;
 	}
 }

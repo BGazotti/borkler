@@ -19,8 +19,6 @@
 
 package gazcreations.borkler;
 
-import java.util.Objects;
-
 import gazcreations.borkler.blocks.BorklerBlock;
 import gazcreations.borkler.blocks.Steam;
 import gazcreations.borkler.blocks.SteamBlock;
@@ -28,16 +26,9 @@ import gazcreations.borkler.container.BorklerContainer;
 import gazcreations.borkler.entities.BorklerTileEntity;
 import gazcreations.borkler.items.BorklerItem;
 import gazcreations.borkler.items.SteamItem;
-import gazcreations.borkler.network.BorklerData;
-import io.netty.buffer.Unpooled;
-import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.container.Container;
 import net.minecraft.inventory.container.ContainerType;
-import net.minecraft.inventory.container.ContainerType.IFactory;
-import net.minecraft.network.PacketBuffer;
-import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
-import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.fml.network.IContainerFactory;
 import net.minecraftforge.registries.ObjectHolder;
 
