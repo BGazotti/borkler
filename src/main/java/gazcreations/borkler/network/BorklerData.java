@@ -41,7 +41,6 @@ import net.minecraftforge.fml.network.NetworkEvent.Context;
  * Used in networking.
  * 
  * @author gazotti
- * @deprecated TODO use NBTs for this purpose
  *
  */
 public class BorklerData {
@@ -51,6 +50,7 @@ public class BorklerData {
 	@Nonnull
 	private List<Pair<FluidStack, Integer>> tanks;
 
+	@Deprecated
 	public BorklerData(BlockPos pos, List<Pair<FluidStack, Integer>> tanks) {
 		this.pos = pos;
 		this.tanks = tanks;
@@ -73,6 +73,7 @@ public class BorklerData {
 	 * 
 	 * @param data   BorklerData object to encode
 	 * @param packet The PacketBuffer to write to
+	 * @deprecated
 	 */
 	public static void encode(BorklerData data, PacketBuffer packet) {
 		packet.writeBlockPos(data.getPos());
@@ -97,6 +98,10 @@ public class BorklerData {
 		return new BorklerData(pos, tanks);
 	}
 
+	public static void encodePos(BlockPos pos, PacketBuffer packet) {
+		packet.writeBlockPos(pos);
+	}
+	
 	public static CompoundNBT decodeToNBT(PacketBuffer packet) {
 		return null;
 	}
@@ -111,6 +116,7 @@ public class BorklerData {
 	 * @param data
 	 * @param context
 	 */
+	@SuppressWarnings("resource")
 	public static void handlePacket(BorklerData data, Supplier<Context> contextSupplier) {
 		Context context = contextSupplier.get();
 		context.enqueueWork(() -> {

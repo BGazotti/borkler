@@ -23,14 +23,11 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.annotation.Nonnull;
-
-import org.apache.commons.lang3.tuple.Pair;
-
 import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import gazcreations.borkler.container.BorklerContainer;
+import gazcreations.borkler.entities.BorklerTileEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.IGuiEventListener;
 import net.minecraft.client.gui.IHasContainer;
@@ -63,8 +60,9 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 	private static final ResourceLocation guiTexture = new ResourceLocation("borkler", "textures/gui/steam_boiler.png");
 	private static final ResourceLocation overlayTexture = new ResourceLocation("borkler",
 			"textures/gui/boiler_overlay.png");
-	private List<Pair<FluidStack, Integer>> fluids;
+	// private List<Pair<FluidStack, Integer>> fluids;
 	private TankSimulator[] tanks;
+	private BorklerTileEntity ent;
 
 	/**
 	 * A little screen constructor, containing the back-end container and the
@@ -78,12 +76,7 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 		super(screenContainer, inv, titleIn);
 		this.xSize = 184;
 		this.ySize = 151;
-		fluids = screenContainer.getTanks();
-		if (fluids == null) {
-			this.fluids = new ArrayList<>(4);
-			for (int i = 0; i < 3; i++)
-				fluids.add(Pair.of(FluidStack.EMPTY, 0));
-		}
+		ent = screenContainer.getTileEntity();
 		initTanks(Minecraft.getInstance().getMainWindow().getWidth(),
 				Minecraft.getInstance().getMainWindow().getHeight());
 		passEvents = false;
@@ -91,13 +84,12 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 
 	private void initTanks(int width, int height) {
 		this.tanks = new TankSimulator[3];
-		for (int i = 0; i < fluids.size(); i++) {
+		for (int i = 0; i < tanks.length; i++) {
 			/*
 			 * These magic numbers came up while I was configuring the screen for an
 			 * arbitrary size. Think of them as... correction factors. Yup, that's it.
 			 */
-			tanks[i] = new TankSimulator(this, fluids.get(i).getKey(), fluids.get(i).getValue(),
-					(width / 2) - 5 + (width / 427) * (i * 32), (height / 2) - 65);
+			tanks[i] = new TankSimulator(i, (width / 2) - 5 + (width / 427) * (i * 32), (height / 2) - 65);
 		}
 	}
 
@@ -118,17 +110,18 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 				&& this.hoveredSlot.getHasStack()) {
 			this.renderTooltip(matrixStack, this.hoveredSlot.getStack(), x, y);
 		} else {
-			for (TankSimulator tank : tanks) {
+			for (int i = 0; i < tanks.length; i++) {
+				TankSimulator tank = tanks[i];
 				if (tank.isMouseOver(x, y)) {
 					List<ITextComponent> text = new ArrayList<>(3);
-					if (!tank.fluid.isEmpty()) {
-						text.add(tank.fluid.getDisplayName());
-						text.add(new StringTextComponent(String.valueOf(tank.fluid.getAmount()) + " mB"));
+					if (!tank.getFluid().isEmpty()) {
+						text.add(tank.getFluid().getDisplayName());
+						text.add(new StringTextComponent(String.valueOf(tank.getFluid().getAmount()) + " mB"));
 					} else
 						text.add(new StringTextComponent("Empty"));
 					// Not sure if this needs to be called, but still, documentation suggests it
 					GuiUtils.preItemToolTip(new ItemStack(() -> Items.ACACIA_BOAT, 1));
-					GuiUtils.drawHoveringText(matrixStack, text, x, y, width, height, 47, font);
+					GuiUtils.drawHoveringText(matrixStack, text, x, y, width, height, 53, font);
 					GuiUtils.postItemToolTip();
 				}
 			}
@@ -150,8 +143,9 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 	 *                    for steam.
 	 */
 	private void drawTank(MatrixStack matrixStack, TankSimulator tank, boolean doubleScale) {
-		if (tank.fluid.isEmpty())
+		if (tank.getFluid().isEmpty())
 			return; // will not draw an empty tank
+		tank.setFluidTexture();
 		/*
 		 * Let's isolate our variables for a prettier method call.
 		 * 
@@ -174,7 +168,7 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 		 * Again, we will subtract two pixels from the tank's X size and dislocate it to
 		 * the right.
 		 */
-		blit(matrixStack, tank.posX + 1, yPos, 0, tank.sizeX - 2, ySize, tank.fluidSprite);
+		blit(matrixStack, tank.posX + 1, yPos, 0, tank.sizeX - 2, ySize, tank.cachedFluidSprite);
 		RenderSystem.disableBlend();
 		RenderSystem.color4f(1, 1, 1, 1);
 		getMinecraft().getTextureManager().bindTexture(overlayTexture);
@@ -205,37 +199,31 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 		this.minecraft.getTextureManager().bindTexture(guiTexture);
 		blit(matrixStack, (this.width - this.xSize) / 2, (this.height - this.ySize) / 2, 0, 0, 256, 256);
 	}
-//TODO i think i found a way to make this auto-update, maybe add a listener of some sort
+
 	class TankSimulator implements IGuiEventListener {
-		private FluidStack fluid;
-		private int capacity;
-		private TextureAtlasSprite fluidSprite;
+		private int index;
+		private TextureAtlasSprite cachedFluidSprite;
 		private Color fluidColor;
-		private BorklerScreen screen;
 		private int posX;
 		private int posY;
 		private int sizeX;
 		private int sizeY;
 
 		/**
-		 * Please do not supply null fluids to this tank. Use {@link FluidStack#EMPTY}.
 		 * 
-		 * @param screen   The containing screen.
-		 * @param fluid    The {@link FluidStack} in this tank.
-		 * @param capacity This tank's capacity. For rendering purposes.
-		 * @param posX     This tank's left boundary.
-		 * @param posY     This tank's upper boundary.
+		 * @param index The corresponding index (0-2) to the BorklerTileEntity. Will be
+		 *              used to retrieve fluid and capacity.
+		 * @param posX  This tank's left boundary.
+		 * @param posY  This tank's upper boundary.
 		 */
-		public TankSimulator(BorklerScreen screen, @Nonnull FluidStack fluid, int capacity, int posX, int posY) {
-			this.fluid = fluid;
-			this.capacity = capacity;
-			this.screen = screen;
+		public TankSimulator(int index, int posX, int posY) {
+			this.index = index;
 			this.posX = posX;
 			this.posY = posY;
 			this.sizeX = 18;
 			this.sizeY = 49;
 			setFluidTexture();
-			screen.addListener(this); // this is done so that the tanks can be resized
+			BorklerScreen.this.addListener(this); // this is done so that the tanks can be resized
 
 		}
 
@@ -251,16 +239,20 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 		 * Gets the texture and color for this TankSimulator's fluid.
 		 */
 		private void setFluidTexture() {
-			if (fluid.isEmpty()) {
+			if (getFluid().isEmpty()) {
+				cachedFluidSprite = null;
 				fluidColor = new Color(0);
 				return;
 			}
-			Texture txtr = Minecraft.getInstance().getTextureManager()
-					.getTexture(PlayerContainer.LOCATION_BLOCKS_TEXTURE);
-			if (txtr instanceof AtlasTexture) {
-				fluidSprite = ((AtlasTexture) txtr).getSprite(fluid.getFluid().getAttributes().getStillTexture());
+			if (cachedFluidSprite == null) {
+				Texture txtr = Minecraft.getInstance().getTextureManager()
+						.getTexture(PlayerContainer.LOCATION_BLOCKS_TEXTURE);
+				if (txtr instanceof AtlasTexture) {
+					cachedFluidSprite = ((AtlasTexture) txtr)
+							.getSprite(getFluid().getFluid().getAttributes().getStillTexture());
+				}
+				fluidColor = new Color(getFluid().getFluid().getAttributes().getColor());
 			}
-			fluidColor = new Color(fluid.getFluid().getAttributes().getColor());
 		}
 
 		/**
@@ -269,11 +261,19 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 		 */
 		private double getFilledFraction() {
 			try {
-				return fluid.getAmount() / (double) capacity;
+				return getFluid().getAmount() / (double) getCapacity();
 			} catch (ArithmeticException singularity) {
 				// yeah i see ya trying to divide by zero. Oh wait, that's me.
 				return 0;
 			}
+		}
+
+		int getCapacity() {
+			return ent.getTankCapacity(index);
+		}
+
+		FluidStack getFluid() {
+			return ent.getFluidInTank(index);
 		}
 	}
 

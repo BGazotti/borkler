@@ -25,6 +25,7 @@ import java.util.function.Supplier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import gazcreations.borkler.entities.BorklerTileEntity;
 import gazcreations.borkler.network.BorklerPacketHandler;
 import gazcreations.borkler.proxy.ClientProxy;
 import net.minecraft.block.Block;
@@ -37,6 +38,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
@@ -94,6 +96,11 @@ public class Borkler {
 		ModLoadingContext.get().registerConfig(net.minecraftforge.fml.config.ModConfig.Type.COMMON, BorklerConfig.SPEC,
 				"borkler.toml");
 
+	}
+
+	@SubscribeEvent
+	public void sendFuelData(final PlayerLoggedInEvent event) {
+		BorklerPacketHandler.sendToPlayer(event.getPlayer(), BorklerTileEntity.getValidFuelTypes());
 	}
 
 	/**

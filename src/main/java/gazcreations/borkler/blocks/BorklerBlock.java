@@ -34,7 +34,10 @@ import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.fluid.Fluid;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.inventory.InventoryHelper;
+import net.minecraft.item.BucketItem;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.state.BooleanProperty;
 import net.minecraft.state.StateContainer;
 import net.minecraft.tileentity.TileEntity;
@@ -114,24 +117,21 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	public ActionResultType onBlockActivated(BlockState state, World worldIn, BlockPos pos, PlayerEntity player,
 			Hand handIn, BlockRayTraceResult hit) {
 		if (!worldIn.isRemote) {
+			ItemStack held = player.getHeldItem(handIn);
+			if (held.getItem() instanceof BucketItem) {
+				boolean filled = this.receiveFluid(worldIn, pos, state,
+						((BucketItem) held.getItem()).getFluid().getDefaultState());
+				if (filled) {
+					held.setCount(held.getCount() - 1);
+					player.inventory.addItemStackToInventory(new ItemStack(Items.BUCKET, 1));
+					return ActionResultType.SUCCESS;
+				}
+				return ActionResultType.PASS;
+			}
 			BorklerTileEntity te = getTileEntity(worldIn, pos);
 			NetworkHooks.openGui((ServerPlayerEntity) player, te, ((t) -> {
-				BorklerData.encode(te.getData(), t);
+				BorklerData.encodePos(te.getPos(), t);
 			}));
-			/*NetworkHooks.openGui((ServerPlayerEntity) player, te, new Consumer<PacketBuffer>() {
-
-				@Override
-				public void accept(PacketBuffer t) {
-					BorklerData.encode(te.getData(), t);
-
-				}
-			});*/
-			// TODO implement GUI stuff
-			/*
-			 * INamedContainerProvider inamedcontainerprovider = this.getContainer(state,
-			 * worldIn, pos); if (inamedcontainerprovider != null) {
-			 * player.openContainer(inamedcontainerprovider); }
-			 */
 
 		}
 		return ActionResultType.SUCCESS;
@@ -237,7 +237,8 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 		int tank = tileEntity.getTankForFluid(arg3.getFluid());
 		if (tank < 0 || tank == 2)
 			return false;
-		if (tileEntity.getTankCapacity(tank) - tileEntity.getFluidInTank(tank).getAmount() < 1000)
+		if (tileEntity.getTankCapacity(tank) - tileEntity.getFluidInTank(tank).getAmount() < 1000) // TODO not hardcode
+																									// bucket volume
 			return false;
 		if (tileEntity.fill(new FluidStack(arg3.getFluid(), 1000), FluidAction.SIMULATE) > 0) {
 			return tileEntity.fill(new FluidStack(arg3.getFluid(), 1000), FluidAction.EXECUTE) > 0;

@@ -18,6 +18,7 @@
  */
 package gazcreations.borkler.network;
 
+import gazcreations.borkler.entities.BorklerTileEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.util.ResourceLocation;
@@ -56,6 +57,9 @@ public class BorklerPacketHandler {
 				PROTOCOL_VERSION::equals, PROTOCOL_VERSION::equals);
 		INSTANCE.registerMessage(id, BorklerData.class, BorklerData::encode, BorklerData::decode,
 				BorklerData::handlePacket);//TODO implement?
+		id++;
+		INSTANCE.registerMessage(id, BorklerFluidList.class, BorklerFluidList::encode, BorklerFluidList::decode,
+				BorklerTileEntity::updateValidFuelList);
 		id++;
 	}
 

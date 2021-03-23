@@ -19,12 +19,13 @@
 
 package gazcreations.borkler.container;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.tuple.Pair;
 
 import gazcreations.borkler.Index;
-import gazcreations.borkler.network.BorklerData;
+import gazcreations.borkler.entities.BorklerTileEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.IInventory;
@@ -41,9 +42,10 @@ public class BorklerContainer extends Container {
 	private IInventory borklerInventory;
 	private List<Pair<FluidStack, Integer>> tanksWithCapacity;
 	private BlockPos tileEntityPos; // TODO add reference to TileEntity, might be needed for networking
+	private BorklerTileEntity borklerTE;
 
 	public BorklerContainer(int id, PlayerInventory playerInv, PacketBuffer data) {
-		this(id, playerInv, new Inventory(1), BorklerData.decode(data));
+		this(id, playerInv, new Inventory(1), data.readBlockPos());
 	}
 
 	/**
@@ -54,7 +56,7 @@ public class BorklerContainer extends Container {
 	 * @param playerInv
 	 * @param Ideally,  a BorklerTileEntity
 	 */
-	public BorklerContainer(int id, PlayerInventory playerInv, IInventory inventory, BorklerData data) {
+	public BorklerContainer(int id, PlayerInventory playerInv, IInventory inventory, BlockPos pos/*, BorklerData data*/) {
 		super(Index.BORKLER_CONTAINER_TYPE, id);
 		this.borklerInventory = inventory;
 		borklerInventory.openInventory(playerInv.player);
@@ -89,9 +91,17 @@ public class BorklerContainer extends Container {
 		for (int hotbarSlot = 0; hotbarSlot < 9; hotbarSlot++) {
 			addSlot(new Slot(playerInv, hotbarSlot, leftCol + hotbarSlot * 18, 127));
 		}
-		if (data != null) {
-			this.tanksWithCapacity = data.getTanks();
-			this.tileEntityPos = data.getPos();
+		if (pos != null) {
+			//this.tanksWithCapacity = data.getTanks();
+			this.tileEntityPos = pos;
+			this.borklerTE = (BorklerTileEntity) playerInv.player.world.getTileEntity(tileEntityPos);
+			if (borklerTE != null) {
+				gazcreations.borkler.Borkler.LOGGER.debug(this.getClass() + ": BorklerTE found");
+				this.tanksWithCapacity = new ArrayList<Pair<FluidStack, Integer>>(4);
+				for (int i = 0; i <= 2; i++) {
+					this.tanksWithCapacity.add(Pair.of(borklerTE.getFluidInTank(i), borklerTE.getTankCapacity(i)));
+				}
+			}
 		}
 	}
 
@@ -158,5 +168,9 @@ public class BorklerContainer extends Container {
 
 	public void setTileEntityPos(BlockPos tileEntityPos) {
 		this.tileEntityPos = tileEntityPos;
+	}
+	
+	public BorklerTileEntity getTileEntity() {
+		return this.borklerTE;
 	}
 }

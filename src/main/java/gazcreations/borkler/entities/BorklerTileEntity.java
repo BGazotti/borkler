@@ -22,16 +22,15 @@ package gazcreations.borkler.entities;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.lang3.tuple.Pair;
-
-import gazcreations.borkler.Borkler;
 import gazcreations.borkler.BorklerConfig;
 import gazcreations.borkler.Index;
 import gazcreations.borkler.blocks.BorklerBlock;
 import gazcreations.borkler.container.BorklerContainer;
-import gazcreations.borkler.network.BorklerData;
+import gazcreations.borkler.network.BorklerFluidList;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
@@ -39,7 +38,9 @@ import net.minecraft.fluid.Fluid;
 import net.minecraft.fluid.Fluids;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.container.Container;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SUpdateTileEntityPacket;
@@ -65,6 +66,8 @@ import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fml.LogicalSide;
 import net.minecraftforge.fml.LogicalSidedProvider;
+import net.minecraftforge.fml.network.NetworkDirection;
+import net.minecraftforge.fml.network.NetworkEvent.Context;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
@@ -73,8 +76,8 @@ import net.minecraftforge.registries.ForgeRegistries;
 /**
  * The Borkler Tile Entity. The heart of this mod, if you will.
  * <p>
- * This class handles all of the boiler's processes. Consuming fluids,
- * outputting fluids, burning stuff, etc.
+ * This class handles all of the boiler's processes - even though it shouldn't.
+ * Consuming fluids, outputting fluids, burning stuff, etc.
  * 
  * @author gazotti
  *
@@ -84,16 +87,32 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	/**
 	 * A set of valid {@link Fluid} types to use as fuel.
 	 */
-	private static Set<Fluid> validFuels = new HashSet<Fluid>(16, 1);
+	private static BorklerFluidList validFuels = BorklerFluidList.getDefault();
 
-	static {// TODO this will crash servers, use networking
-		validFuels.addAll(FluidTags.LAVA.getAllElements());
+	/**
+	 * @return A copy (in case you're tempted to alter its contents) of the map of
+	 *         valid fuels and burn times.
+	 */
+	public static BorklerFluidList getValidFuelTypes() {
+		BorklerFluidList copy = new BorklerFluidList(validFuels);
+		gazcreations.borkler.Borkler.LOGGER.debug("getting valid fuel types: " + copy);
+		return copy;
+	}
+
+	public static void updateValidFuelList(BorklerFluidList fluids, java.util.function.Supplier<Context> context) {
+		Context ctx = context.get();
+		if (ctx.getDirection() == NetworkDirection.LOGIN_TO_CLIENT
+				|| ctx.getDirection() == NetworkDirection.PLAY_TO_CLIENT) {
+			gazcreations.borkler.Borkler.LOGGER.debug("updateValidFuelList has been called; list is " + fluids);
+			validFuels = fluids;
+		}
+		ctx.setPacketHandled(true);
 	}
 
 	/**
 	 * The tier of this boiler. Currently unused. <br>
 	 * Will be used as a multiplier for tank capacity and steam production,
-	 * probably.
+	 * probably. TODO implement.
 	 */
 	private byte tier;
 
@@ -143,13 +162,10 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * Used along with {@link BorklerTileEntity#ticksSinceLastClientUpdate} to
 	 * determine whether the server should send data to the client.
 	 */
-	private boolean isDirty;
 
 	/**
 	 * A Set containing up to 6 fluid connections for this boiler. This set is
 	 * always populated by {@link BorklerTileEntity#updateFluidConnections()}. <br>
-	 * Note that that method uses {@link Collections#synchronizedSet(Set)} to create
-	 * the set; as such, iteration must be synchronized on it.
 	 */
 	private Set<LazyOptional<IFluidHandler>> fluidConnections;
 
@@ -175,7 +191,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 */
 	public BorklerTileEntity(IBlockReader world) {
 		super(Index.BORKLER_TE_TYPE);
-		this.tier = 1; // TODO implement tiers
+		this.tier = 1;
 		this.water = new FluidStack(Fluids.WATER, 0);
 		this.fuel = new FluidStack(Fluids.EMPTY, 0);
 		this.steam = new FluidStack(Index.Fluids.STEAMSOURCE, 0);
@@ -194,8 +210,9 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			 */
 			@Override
 			public boolean isItemValidForSlot(int slot, ItemStack stack) {
-				gazcreations.borkler.Borkler.LOGGER.info(ForgeHooks.getBurnTime(stack));
-				return stack.isEmpty() || ForgeHooks.getBurnTime(stack) > 0;
+				List<Item> hardcoded = new ArrayList<>();
+				hardcoded.add(Items.BUCKET);
+				return hardcoded.contains(stack.getItem()) || stack.isEmpty() || ForgeHooks.getBurnTime(stack) > 0;
 			}
 		};
 		this.burnTime = 0;
@@ -204,10 +221,9 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		this.itemConnections = Collections.emptySet();
 		this.world = (World) world;
 		if (world != null) { // index TEs will not run this
-			updateFluidConnections();
-			updateItemConnections();
+			addFutureServerTask(this.world, () -> updateFluidConnections(), false);
+			addFutureServerTask(this.world, () -> updateItemConnections(), false);
 		}
-		Borkler.LOGGER.info("BorklerTileEntity created at " + pos);
 	}
 
 	/**
@@ -220,10 +236,14 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	}
 
 	public void markDirty() {
-		isDirty = true;
-		if (this.world != null)
-			this.world.notifyBlockUpdate(getPos(), getWorld().getBlockState(getPos()),
-					getWorld().getBlockState(getPos()), 3);
+		if (this.world != null) {
+			// TODO this is a test for that whole sync tradeoff stuff
+			if (this.ticksSinceLastClientUpdate > 2) {
+				addFutureServerTask(world, () -> this.world.notifyBlockUpdate(getPos(),
+						getWorld().getBlockState(getPos()), getWorld().getBlockState(getPos()), 3), true);
+				this.ticksSinceLastClientUpdate = 0;
+			}
+		}
 		super.markDirty();
 	}
 
@@ -298,20 +318,10 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 
 		if (!simulate) {
 			if (existing.isEmpty()) {
-				gazcreations.borkler.Borkler.LOGGER.info("Inventory is empty, creating a new one");
 				solidFuel.setInventorySlotContents(0,
 						reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, limit) : stack);
-				gazcreations.borkler.Borkler.LOGGER.info("New inv contents are:");
-				for (int i = 0; i < solidFuel.getSizeInventory(); i++) {
-					gazcreations.borkler.Borkler.LOGGER.info(solidFuel.getStackInSlot(i).toString());
-
-				}
 			} else {
-				gazcreations.borkler.Borkler.LOGGER
-						.info("Inventory contains items: " + solidFuel.getStackInSlot(0).toString());
 				existing.grow(reachedLimit ? limit : stack.getCount());
-				gazcreations.borkler.Borkler.LOGGER
-						.info("Inventory now contains items: " + solidFuel.getStackInSlot(0).toString());
 
 			}
 			markDirty();
@@ -350,6 +360,14 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	}
 
 	/**
+	 * See {@link BorklerTileEntity#isItemValid(int, ItemStack)}.
+	 */
+	@Override
+	public boolean isItemValidForSlot(int slot, ItemStack stack) {
+		return solidFuel.isItemValidForSlot(0, stack);
+	}
+
+	/**
 	 * @return 3. A tank for water (tank #0), a tank for liquid fuel(tank #1) and a
 	 *         tank for steam(tank #2).
 	 */
@@ -359,18 +377,19 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	}
 
 	/**
-	 * @return A copy of the FluidStack in a given tank. FluidStack.EMPTY if the
-	 *         tank is empty or if the specified tank is not valid.
+	 * @return The FluidStack in a given tank. FluidStack.EMPTY if the tank is empty
+	 *         or if the specified tank is not valid. <br>
+	 *         Again, DO NOT MODIFY THIS FLUIDSTACK.
 	 */
 	@Override
 	public FluidStack getFluidInTank(int tank) {
 		switch (tank) {
 		case 0:
-			return water.isEmpty() ? FluidStack.EMPTY : new FluidStack(this.water, this.water.getAmount());
+			return water;
 		case 1:
-			return fuel.isEmpty() ? FluidStack.EMPTY : new FluidStack(this.fuel, this.fuel.getAmount());
+			return fuel;
 		case 2:
-			return steam.isEmpty() ? FluidStack.EMPTY : new FluidStack(this.steam, this.steam.getAmount());
+			return steam;
 		}
 		return FluidStack.EMPTY;
 	}
@@ -418,8 +437,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		case 0:
 			return stack.getFluid().isIn(FluidTags.WATER);
 		case 1:
-			// TODO add valid fuel types
-			return validFuels.contains(stack.getFluid()) /* || acceptedFuels.contains(fluid) */;
+			return validFuels.containsKey(stack.getFluid());
 		case 2:
 			return stack.getFluid().isEquivalentTo(Index.Fluids.STEAM)
 					|| stack.getFluid().isEquivalentTo(Index.Fluids.STEAMSOURCE)
@@ -439,7 +457,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	public byte getTankForFluid(Fluid fluid) {
 		if (fluid.isIn(FluidTags.WATER))
 			return 0;
-		if (validFuels.contains(fluid)) {
+		if (validFuels.containsKey(fluid)) {
 			return 1;
 		}
 		if (fluid.isIn(FluidTags.getCollection().get(new ResourceLocation("forge:fluids/steam")))) {
@@ -569,7 +587,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			@Override
 			public void accept(LazyOptional<T> t) {
 				gazcreations.borkler.Borkler.LOGGER
-						.info("A Borkler's supplier has been invalidated: " + t.toString() + "/" + element.toString());
+						.debug("A Borkler's supplier has been invalidated: " + t.toString() + "/" + element.toString());
 				set.remove(element);
 			}
 		});
@@ -577,18 +595,19 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	}
 
 	public void updateItemConnections() {
-		Set<LazyOptional<IItemHandler>> consumers = Collections
-				.synchronizedSet(new HashSet<LazyOptional<IItemHandler>>(7, 0.99f) {
-					private static final long serialVersionUID = 1L;
+		if (world.isRemote)
+			return;
+		Set<LazyOptional<IItemHandler>> consumers = new HashSet<LazyOptional<IItemHandler>>(7, 0.99f) {
+			private static final long serialVersionUID = 1L;
 
-					public boolean add(LazyOptional<IItemHandler> element) {
-						if (element == null || !element.isPresent())
-							return false;
-						return super.add(element);
-					}
-				});
+			public boolean add(LazyOptional<IItemHandler> element) {
+				if (element == null || !element.isPresent())
+					return false;
+				return super.add(element);
+			}
+		};
 		gazcreations.borkler.Borkler.LOGGER
-				.info("Borkler @" + world + " ," + pos + " has been politely asked to update its item connections.");
+				.debug("Borkler @" + world + " ," + pos + " has been politely asked to update its item connections.");
 		LazyOptional<IItemHandler> cap = null;
 		TileEntity te = null;
 		// Trigger warning: the following section may require subsequent use of
@@ -626,7 +645,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			addWithListener(consumers, cap);
 		}
 		gazcreations.borkler.Borkler.LOGGER
-				.info("Borkler @" + world + " ," + pos + "has updated its item connections: " + consumers.toString());
+				.debug("Borkler @" + world + " ," + pos + "has updated its item connections: " + consumers.toString());
 		this.itemConnections = consumers;
 	}
 
@@ -639,19 +658,20 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * 
 	 */
 	public void updateFluidConnections() {
-		Set<LazyOptional<IFluidHandler>> consumers = Collections
-				.synchronizedSet(new HashSet<LazyOptional<IFluidHandler>>(7, 0.99f) {
-					private static final long serialVersionUID = 1L;
+		if (world.isRemote)
+			return;
+		Set<LazyOptional<IFluidHandler>> consumers = new HashSet<LazyOptional<IFluidHandler>>(7, 0.99f) {
+			private static final long serialVersionUID = 1L;
 
-					public boolean add(LazyOptional<IFluidHandler> element) {
-						if (element == null || !element.isPresent())
-							return false;
-						return super.add(element);
-					}
-				});
+			public boolean add(LazyOptional<IFluidHandler> element) {
+				if (element == null || !element.isPresent())
+					return false;
+				return super.add(element);
+			}
+		};
 		gazcreations.borkler.Borkler.LOGGER
-				.info("Borkler @" + world + " ," + pos + " has been politely asked to update its fluid connections.");
-		gazcreations.borkler.Borkler.LOGGER.info("Current connections are: " + this.fluidConnections.toString());
+				.debug("Borkler @" + world + " ," + pos + " has been politely asked to update its fluid connections.");
+		gazcreations.borkler.Borkler.LOGGER.debug("Current connections are: " + this.fluidConnections.toString());
 		LazyOptional<IFluidHandler> cap = null;
 		TileEntity te = null;
 		// Trigger warning: the following section may require subsequent use of
@@ -689,7 +709,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			addWithListener(consumers, cap);
 		}
 		gazcreations.borkler.Borkler.LOGGER
-				.info("Borkler @" + world + " ," + pos + "has updated its connections: " + consumers.toString());
+				.debug("Borkler @" + world + " ," + pos + "has updated its connections: " + consumers.toString());
 		this.fluidConnections = consumers;
 	}
 
@@ -698,21 +718,43 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * ones can accept steam, and appropriately adjust the steam output.<br>
 	 * The Boiler will attempt to evenly distribute its steam to all consumers.
 	 */
-	private void distributeOutputs() {
-
+	private void distributeSteam() {
+		Set<LazyOptional<IFluidHandler>> consumers = new HashSet<>(7, .99f);
+		for (LazyOptional<IFluidHandler> dest : fluidConnections) {
+			if (dest.isPresent()) {
+				IFluidHandler handler = dest.orElse(null);
+				if (handler != null) {
+					int amount = handler.fill(steam, FluidAction.SIMULATE);
+					if (amount > 0) {
+						// oh look, we can output steam!
+						addWithListener(consumers, dest);
+					}
+				}
+			}
+		}
+		if (consumers.size() < 1)
+			return; // nobody to send steam to =(
+		int amount = this.steam.getAmount() / consumers.size();
+		for (LazyOptional<IFluidHandler> dest : consumers) {
+			if (dest.isPresent()) {
+				pushSteam(dest.orElse(null), amount);
+			}
+		}
 	}
 
 	/**
-	 * This method will attempt to output steam to a connected IFluidHandler. TODO:
-	 * what if there's multiple possible outputs?
+	 * This method will attempt to output steam to a connected IFluidHandler.
 	 * 
 	 * @param destination
+	 * @param steamAmount
 	 */
-	public void pushSteam(IFluidHandler destination) {
-		int amount = destination.fill(steam, FluidAction.SIMULATE);
+	private void pushSteam(IFluidHandler destination, int steamAmount) {
+		if (destination == null) // just checking
+			return;
+		int amount = destination.fill(new FluidStack(steam.getFluid(), steamAmount), FluidAction.SIMULATE);
 		if (amount > 0) {
 			// oh look, we can output steam!
-			destination.fill(drain(amount, FluidAction.EXECUTE), FluidAction.EXECUTE);
+			destination.fill(drain(Math.min(steamAmount, amount), FluidAction.EXECUTE), FluidAction.EXECUTE);
 			// this.drain will invoke markDirty(), so we're good
 		}
 
@@ -749,7 +791,6 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			water.grow(source.drain(toDrain, FluidAction.EXECUTE).getAmount());
 			markDirty();
 			// water has been pulled!
-			gazcreations.borkler.Borkler.LOGGER.info("A Boiler has pulled water: " + drained.getAmount());
 		}
 		// try to pull fuel
 		if (!fuel.isEmpty()) {
@@ -761,7 +802,6 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			if (drained.getAmount() > 0) {
 				fuel.grow(source.drain(toDrain, FluidAction.EXECUTE).getAmount());
 				markDirty();
-				gazcreations.borkler.Borkler.LOGGER.info("A Boiler has pulled fuel: " + drained.getAmount());
 				// fuel has been pulled!
 			}
 		}
@@ -776,7 +816,6 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 				fuel = new FluidStack(toDrain.getFluid(), 0);
 				fuel.grow(source.drain(toDrain, FluidAction.EXECUTE).getAmount());
 				markDirty();
-				gazcreations.borkler.Borkler.LOGGER.info("A Boiler has pulled fuel: " + toDrain.getAmount());
 				// fuel has been pulled!
 			}
 		}
@@ -827,19 +866,8 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 */
 	@Override
 	public Container createMenu(int id, PlayerInventory playerInv, PlayerEntity player) {
-		BorklerContainer menu = new BorklerContainer(id, playerInv, this.solidFuel, getData());
+		BorklerContainer menu = new BorklerContainer(id, playerInv, this.solidFuel, getPos());
 		return menu;
-	}
-
-	/**
-	 * @return A new BorklerData object from this TileEntity.
-	 */
-	public BorklerData getData() {
-		ArrayList<Pair<FluidStack, Integer>> pairs = new ArrayList<>(4);
-		pairs.add(Pair.of(water, getTankCapacity(0)));
-		pairs.add(Pair.of(fuel, getTankCapacity(1)));
-		pairs.add(Pair.of(steam, getTankCapacity(2)));
-		return new BorklerData(this.getPos(), pairs);
 	}
 
 	/**
@@ -914,7 +942,6 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		super.onDataPacket(man, s);
 		if (world.isRemote) { // just checking we're clientside
 			this.readCustomData(s.getNbtCompound());
-			gazcreations.borkler.Borkler.LOGGER.debug("Sup. This was a client update. " + ticksSinceLastClientUpdate);
 		}
 	}
 
@@ -931,50 +958,31 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * currently powered and active.
 	 */
 	@Override
-	public void tick() { // TODO add check? added. trial:
-		if (world.isRemote())
+	public void tick() {
+		if (world.isRemote()) // server side only.
 			return;
 		// first things first: if this boiler is set to auto-input fluids, it will try
 		// to do so before anything else.
 		if (BorklerConfig.CONFIG.THIRSTY.get()) {
 			// will check its connections for a water supply
-			synchronized (fluidConnections) {
-				for (LazyOptional<IFluidHandler> supplier : fluidConnections) {
-					// no need to check if it's null, because of the design of the
-					// updateFluidConnections method
-					if (supplier.isPresent()) {
-						// found a supplier!
-						IFluidHandler f = supplier.orElse(null);
-						if (f != null)
-							pullFluid(f);
-					}
+			for (LazyOptional<IFluidHandler> supplier : fluidConnections) {
+				if (supplier.isPresent()) {
+					// found a supplier!
+					IFluidHandler f = supplier.orElse(null);
+					if (f != null)
+						pullFluid(f);
 				}
 			}
 		}
-		// TODO what if there's more than one acceptor? this will send everything to the
-		// first one!
-		synchronized (fluidConnections) {
-			for (LazyOptional<IFluidHandler> consumer : fluidConnections) {
-				if (consumer.isPresent()) {
-					// found a possible consumer!
-					IFluidHandler f = consumer.orElse(null);
-					if (f != null) {
-						pushSteam(f);
-					}
-				}
-			}
-		}
+		distributeSteam();
 		mainMethod: {
 			// the boiler will refuse to operate if it has no water.
 			if (water.isEmpty()) {
-				// Borkler.LOGGER.info("Boiler @" + pos + " shutting down due to lack of
-				// water");
 				setActive(false);
 				break mainMethod;
 			}
 			if (steam.getAmount() == getTankCapacity(2)) {
-				// Borkler.LOGGER.info("Boiler @" + pos + " shutting down because its steam
-				// tank is full");
+				// the boiler will refuse to operate if its steam tank is full.
 				setActive(false);
 				break mainMethod;
 
@@ -986,7 +994,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 				boil();
 
 			} else {
-				burnTime = 0;
+				burnTime = 0; // just in case
 				// OK, so we're not currently burning fuel. Is there anything to burn, though?
 				if (solidFuel.isEmpty() && fuel.isEmpty()) {
 					// there's no liquid or solid fuel present. Boiler will be turned off.
@@ -997,8 +1005,6 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 					// there's solid fuel in the burner. Let's try to burn this.
 					int additionalBurnTime = ForgeHooks.getBurnTime(getStackInSlot(0));
 					if (additionalBurnTime > 0) {
-						gazcreations.borkler.Borkler.LOGGER
-								.info("Consuming 1 " + getStackInSlot(0).getItem() + " for " + additionalBurnTime);
 						burnTime += ForgeHooks.getBurnTime(decrStackSize(0, 1));
 						setActive(true);
 						break mainMethod;
@@ -1006,29 +1012,26 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 				}
 				if (!fuel.isEmpty()) {
 					// ok, there is liquid fuel in the boiler. We'll try to burn this.
-					if (fuel.getFluid().isEquivalentTo(Fluids.LAVA)) {
-						// Determining burn time for lava is tricky. Let's use the lava bucket, or 1000
-						// mB, as reference.
-						int bitOFuel = Math.min(fuel.getAmount(), 5);
-						int additionalBurnTime = bitOFuel * 20;
-						Borkler.LOGGER.info("Consuming " + bitOFuel + " mB of fuel " + fuel.getFluid().getRegistryName()
-								+ " for " + additionalBurnTime);
-						fuel.shrink(bitOFuel);
-						burnTime += additionalBurnTime;
-						Borkler.LOGGER.info("Burn time increased: now " + burnTime);
-						setActive(true);
-						break mainMethod;
-					}
+					int bitOFuel = Math.min(fuel.getAmount(), 5);
+					int addBurnTime = validFuels.get(fuel.getFluid()) * bitOFuel;
+					fuel.shrink(bitOFuel);
+					burnTime += addBurnTime;
+					setActive(true);
+					break mainMethod;
+					/*
+					 * if (fuel.getFluid().isIn(FluidTags.LAVA)) { // Determining burn time for lava
+					 * is tricky. Let's use the lava bucket, or 1000 // mB, as reference. int
+					 * bitOFuel = Math.min(fuel.getAmount(), 5); int additionalBurnTime = bitOFuel *
+					 * 20; fuel.shrink(bitOFuel); burnTime += additionalBurnTime; setActive(true);
+					 * break mainMethod; } if
+					 * (fuel.getFluid().isIn(net.minecraftforge.common.Tags.Fluids.MILK)) {
+					 * 
+					 * }
+					 */
 				}
 			}
 		} // mainMethod label ends here. Now we run our dirtyness check.
 		ticksSinceLastClientUpdate++;
-		if (isDirty && ticksSinceLastClientUpdate >= 5) {
-			// TODO send update to client etc.
-			ticksSinceLastClientUpdate = 0;
-			isDirty = false;
-		}
-
 	}
 
 	/**
