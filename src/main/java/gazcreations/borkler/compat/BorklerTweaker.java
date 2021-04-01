@@ -19,6 +19,17 @@
 
 package gazcreations.borkler.compat;
 
+import org.openzen.zencode.java.ZenCodeType;
+
+import com.blamejared.crafttweaker.api.CraftTweakerAPI;
+import com.blamejared.crafttweaker.api.annotations.ZenRegister;
+import com.blamejared.crafttweaker.api.fluid.IFluidStack;
+import com.blamejared.crafttweaker.api.managers.IRecipeManager;
+
+import gazcreations.borkler.recipes.BorklerFuel;
+import net.minecraft.item.crafting.IRecipeType;
+import net.minecraft.util.ResourceLocation;
+
 /**
  * So, I can't possibly know what y'all will want to fuel this bad boy with.
  * Hopefully, CraftTweaker allows for quick, in-game editing of recipes, and why
@@ -27,10 +38,24 @@ package gazcreations.borkler.compat;
  * @author gazotti
  *
  */
-public class BorklerTweaker {
+@ZenRegister
+@ZenCodeType.Name("mods.borkler.steam_boiler")
+public class BorklerTweaker implements IRecipeManager {
 
 	public BorklerTweaker() {
-		// TODO Auto-generated constructor stub
+	}
+
+	@Override
+	public final IRecipeType<BorklerFuel> getRecipeType() {
+		return BorklerFuel.TYPE;
+	}
+
+	@ZenCodeType.Method
+	public final void addFuel(String recipeName, IFluidStack fluid, int burnTime) {
+		ResourceLocation reciPath = new ResourceLocation("crafttweaker", fixRecipeName(recipeName));
+		final BorklerFuel fuel = new BorklerFuel(fluid.getFluid().getInternal(), burnTime, reciPath);
+		CraftTweakerAPI.apply(new ActionAddFluidRecipe(this, fuel));
+		// BorklerTileEntity.addFuel(fluid.getFluid().getInternal(), burnTime);
 	}
 
 }

@@ -17,25 +17,24 @@
  *  along with Borkler.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package gazcreations.borkler.entities;
+package gazcreations.borkler.blocks;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import gazcreations.borkler.BorklerConfig;
 import gazcreations.borkler.Index;
-import gazcreations.borkler.blocks.BorklerBlock;
 import gazcreations.borkler.container.BorklerContainer;
-import gazcreations.borkler.network.BorklerFluidList;
+import gazcreations.borkler.recipes.BorklerFuel;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.fluid.Fluid;
 import net.minecraft.fluid.Fluids;
+import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.container.Container;
 import net.minecraft.item.Item;
@@ -66,8 +65,6 @@ import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fml.LogicalSide;
 import net.minecraftforge.fml.LogicalSidedProvider;
-import net.minecraftforge.fml.network.NetworkDirection;
-import net.minecraftforge.fml.network.NetworkEvent.Context;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
@@ -87,27 +84,49 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	/**
 	 * A set of valid {@link Fluid} types to use as fuel.
 	 */
-	private static BorklerFluidList validFuels = BorklerFluidList.getDefault();
+	// @Deprecated
+	// private static BorklerFluidList validuels = BorklerFluidList.getDefault();
 
 	/**
 	 * @return A copy (in case you're tempted to alter its contents) of the map of
 	 *         valid fuels and burn times.
 	 */
-	public static BorklerFluidList getValidFuelTypes() {
-		BorklerFluidList copy = new BorklerFluidList(validFuels);
-		gazcreations.borkler.Borkler.LOGGER.debug("getting valid fuel types: " + copy);
-		return copy;
-	}
+	// public static BorklerFluidList getValidFuelTypes() {
+	// BorklerFluidList copy = new BorklerFluidList(validuels);
+	// gazcreations.borkler.Borkler.LOGGER.debug("getting valid fuel types: " +
+	// copy);
+	// return copy;
+	// }
 
-	public static void updateValidFuelList(BorklerFluidList fluids, java.util.function.Supplier<Context> context) {
-		Context ctx = context.get();
-		if (ctx.getDirection() == NetworkDirection.LOGIN_TO_CLIENT
-				|| ctx.getDirection() == NetworkDirection.PLAY_TO_CLIENT) {
-			gazcreations.borkler.Borkler.LOGGER.debug("updateValidFuelList has been called; list is " + fluids);
-			validFuels = fluids;
-		}
-		ctx.setPacketHandled(true);
-	}
+	// public static void addFuel(Fluid fuel, int burnTime) {
+	// validuels.put(fuel, burnTime);
+	// if (ServerLifecycleHooks.getCurrentServer() != null) {
+	// for (PlayerEntity player :
+	// ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayers()) {
+	// addFutureServerTask(player.world, () ->
+	// BorklerPacketHandler.sendToPlayer(player, validuels), true);
+	// }
+	// }
+	// }
+
+	/**
+	 * Called when a client receives a BorklerFluidList update from the server, on
+	 * login or reload.
+	 * 
+	 * @param fluids
+	 * @param context
+	 */
+	// public static void updateValidFuelList(BorklerFluidList fluids,
+	// java.util.function.Supplier<Context> context) {
+	// Context ctx = context.get();
+	// if (ctx.getDirection() == NetworkDirection.LOGIN_TO_CLIENT
+	// || ctx.getDirection() == NetworkDirection.PLAY_TO_CLIENT) {
+	// gazcreations.borkler.Borkler.LOGGER.debug("updateValidFuelList has been
+	// called; list is " + fluids);
+	// validuels = fluids;
+	// }
+	// ctx.setPacketHandled(true);
+	// }
 
 	/**
 	 * The tier of this boiler. Currently unused. <br>
@@ -235,16 +254,30 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		this(null);
 	}
 
+	public IInventory getInventory() {
+		return this.solidFuel;
+	}
+
+	@Override
 	public void markDirty() {
 		if (this.world != null) {
-			// TODO this is a test for that whole sync tradeoff stuff
-			if (this.ticksSinceLastClientUpdate > 2) {
+			if (this.ticksSinceLastClientUpdate > 1) {
 				addFutureServerTask(world, () -> this.world.notifyBlockUpdate(getPos(),
 						getWorld().getBlockState(getPos()), getWorld().getBlockState(getPos()), 3), true);
 				this.ticksSinceLastClientUpdate = 0;
 			}
 		}
 		super.markDirty();
+	}
+
+	/**
+	 * @return The burn time, in ticks, for a given solid fuel, corrected by
+	 *         {@link BorklerConfig#NERFACTOR}.
+	 */
+	private int nerfdBurnTime(ItemStack item) {
+		int defaultBT = ForgeHooks.getBurnTime(item);
+		return defaultBT > 0 ? Math.toIntExact(Math.round(Math.floor(defaultBT * BorklerConfig.CONFIG.NERFACTOR.get())))
+				: -1;
 	}
 
 	/**
@@ -437,7 +470,8 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		case 0:
 			return stack.getFluid().isIn(FluidTags.WATER);
 		case 1:
-			return validFuels.containsKey(stack.getFluid());
+			// return validFuels.containsKey(stack.getFluid());
+			return BorklerFuel.getBurnTime(stack.getFluid(), world) > 0;
 		case 2:
 			return stack.getFluid().isEquivalentTo(Index.Fluids.STEAM)
 					|| stack.getFluid().isEquivalentTo(Index.Fluids.STEAMSOURCE)
@@ -457,7 +491,8 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	public byte getTankForFluid(Fluid fluid) {
 		if (fluid.isIn(FluidTags.WATER))
 			return 0;
-		if (validFuels.containsKey(fluid)) {
+		// if (validFuels.containsKey(fluid)) {
+		if (BorklerFuel.getBurnTime(fluid, world) > 0) {
 			return 1;
 		}
 		if (fluid.isIn(FluidTags.getCollection().get(new ResourceLocation("forge:fluids/steam")))) {
@@ -490,6 +525,8 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		case 0:
 			return this.water;
 		case 1:
+			gazcreations.borkler.Borkler.LOGGER
+					.info("Fuel is " + fuel.getDisplayName().getString() + ": " + fuel.getAmount());
 			return this.fuel;
 		case 2:
 			return this.steam;
@@ -1003,9 +1040,11 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 				}
 				if (!solidFuel.isEmpty()) {
 					// there's solid fuel in the burner. Let's try to burn this.
-					int additionalBurnTime = ForgeHooks.getBurnTime(getStackInSlot(0));
+					// int additionalBurnTime = ForgeHooks.getBurnTime(getStackInSlot(0));
+					int additionalBurnTime = nerfdBurnTime(getStackInSlot(0));
 					if (additionalBurnTime > 0) {
-						burnTime += ForgeHooks.getBurnTime(decrStackSize(0, 1));
+						// burnTime += ForgeHooks.getBurnTime(decrStackSize(0, 1));
+						burnTime += nerfdBurnTime(decrStackSize(0, 1));
 						setActive(true);
 						break mainMethod;
 					}
@@ -1013,7 +1052,8 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 				if (!fuel.isEmpty()) {
 					// ok, there is liquid fuel in the boiler. We'll try to burn this.
 					int bitOFuel = Math.min(fuel.getAmount(), 5);
-					int addBurnTime = validFuels.get(fuel.getFluid()) * bitOFuel;
+					// int addBurnTime = validFuels.getInt(fuel.getFluid()) * bitOFuel;
+					int addBurnTime = BorklerFuel.getBurnTime(fuel.getFluid(), world) * bitOFuel;
 					fuel.shrink(bitOFuel);
 					burnTime += addBurnTime;
 					setActive(true);
@@ -1062,7 +1102,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		stuff.putByte("tier", tier);
 		stuff.putInt("steam", this.steam.getAmount());
 		stuff.putInt("water", this.water.getAmount());
-		stuff.putString("fuelType", fuel.getFluid().getRegistryName().getPath());
+		stuff.putString("fuelType", fuel.getFluid().getRegistryName().toString());
 		stuff.putInt("fuelAmount", this.fuel.getAmount());
 		stuff.putString("solidFuelType", this.solidFuel.getStackInSlot(0).getItem().getRegistryName().toString());
 		stuff.putInt("solidFuelAmount", this.solidFuel.getStackInSlot(0).getCount());

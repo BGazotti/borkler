@@ -1,0 +1,5 @@
+{
+	"type": "borkler:borkler_fuel",
+	"fluid": "minecraft:flowing_lava",
+	"burnTime": 20
+}

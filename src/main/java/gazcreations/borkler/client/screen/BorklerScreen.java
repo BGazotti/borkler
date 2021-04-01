@@ -26,8 +26,8 @@ import java.util.List;
 import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import gazcreations.borkler.blocks.BorklerTileEntity;
 import gazcreations.borkler.container.BorklerContainer;
-import gazcreations.borkler.entities.BorklerTileEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.IGuiEventListener;
 import net.minecraft.client.gui.IHasContainer;
@@ -224,6 +224,7 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 			this.sizeY = 49;
 			setFluidTexture();
 			BorklerScreen.this.addListener(this); // this is done so that the tanks can be resized
+			gazcreations.borkler.Borkler.LOGGER.info(getFluid().getDisplayName().getString());
 
 		}
 

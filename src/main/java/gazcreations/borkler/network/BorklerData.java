@@ -101,15 +101,17 @@ public class BorklerData {
 	public static void encodePos(BlockPos pos, PacketBuffer packet) {
 		packet.writeBlockPos(pos);
 	}
-	
+
 	public static CompoundNBT decodeToNBT(PacketBuffer packet) {
 		return null;
 	}
-	//TODO the switch will be made. Need the full CompoundNBT, not just custom tags.
+
+	// TODO the switch will be made. Need the full CompoundNBT, not just custom
+	// tags.
 	public static void encode(CompoundNBT data, PacketBuffer packet) {
 		packet.writeCompoundTag(data);
 	}
-	
+
 	/**
 	 * This is where the magic happens. TODO implement. Magic is not happening yet.
 	 * 
@@ -117,12 +119,12 @@ public class BorklerData {
 	 * @param context
 	 */
 	@SuppressWarnings("resource")
+	@Deprecated
 	public static void handlePacket(BorklerData data, Supplier<Context> contextSupplier) {
 		Context context = contextSupplier.get();
 		context.enqueueWork(() -> {
 			Container container = Minecraft.getInstance().player.openContainer;
-			if (container != null && container instanceof BorklerContainer) { // TODO for some reason the container is
-																				// not a BorklerContainer?
+			if (container != null && container instanceof BorklerContainer) {
 				BorklerContainer bc = (BorklerContainer) container;
 				bc.setTanks(data.tanks);
 			}

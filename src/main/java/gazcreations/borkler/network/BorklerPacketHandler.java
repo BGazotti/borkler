@@ -18,7 +18,6 @@
  */
 package gazcreations.borkler.network;
 
-import gazcreations.borkler.entities.BorklerTileEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.util.ResourceLocation;
@@ -56,11 +55,13 @@ public class BorklerPacketHandler {
 		INSTANCE = NetworkRegistry.newSimpleChannel(new ResourceLocation("borkler", "main"), () -> PROTOCOL_VERSION,
 				PROTOCOL_VERSION::equals, PROTOCOL_VERSION::equals);
 		INSTANCE.registerMessage(id, BorklerData.class, BorklerData::encode, BorklerData::decode,
-				BorklerData::handlePacket);//TODO implement?
+				BorklerData::handlePacket);
 		id++;
-		INSTANCE.registerMessage(id, BorklerFluidList.class, BorklerFluidList::encode, BorklerFluidList::decode,
-				BorklerTileEntity::updateValidFuelList);
-		id++;
+		/*
+		 * INSTANCE.registerMessage(id, BorklerFluidList.class,
+		 * BorklerFluidList::encode, BorklerFluidList::decode,
+		 * BorklerTileEntity::updateValidFuelList); id++;
+		 */
 	}
 
 	public static final void sendToPlayer(PlayerEntity player, Object message) {
@@ -69,5 +70,9 @@ public class BorklerPacketHandler {
 
 	public static final void sendToChunk(Chunk chunk, Object message) {
 		INSTANCE.send(PacketDistributor.TRACKING_CHUNK.with(() -> chunk), message);
+	}
+
+	public static final void sendToAll(Object message) {
+		INSTANCE.send(PacketDistributor.ALL.noArg(), message);
 	}
 }

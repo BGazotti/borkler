@@ -17,7 +17,7 @@
  *  along with Borkler.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package gazcreations.borkler.blocks;
+package gazcreations.borkler.fluids;
 
 import gazcreations.borkler.Index;
 import net.minecraft.block.BlockState;
@@ -211,6 +211,7 @@ public abstract class Steam extends FlowingFluid {
 
 	/**
 	 * A Steam source block.
+	 * 
 	 * @author gazotti
 	 *
 	 */

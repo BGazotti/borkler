@@ -46,23 +46,34 @@ public class BorklerConfig {
 		 */
 
 	}
-
+	/**
+	 * If true, the boiler will automatically attempt to pull burnable items from
+	 * connected containers.
+	 */
 	public final ForgeConfigSpec.BooleanValue HUNGRY;
 
 	/**
-	 * 
+	 * If true, the boiler will automatically attempt to pull water and fuel from
+	 * connected suppliers.
 	 */
 	public final ForgeConfigSpec.BooleanValue THIRSTY;
 
 	/**
-	 * 
+	 * How much water will be consumed by a powered boiler, in mB/tick.
 	 */
 	public final ForgeConfigSpec.IntValue WATER_USE;
 
 	/**
-	 * 
+	 * The ratio of conversion of water into steam.
 	 */
 	public final ForgeConfigSpec.DoubleValue CONVERSION_RATE;
+
+	/**
+	 * A multiplier (<=1) for how much time the fuel will burn for in a boiler.
+	 * Added after I realized using the same burn time as for the furnace creates a
+	 * very overpowered, fuel-conserving boiler.
+	 */
+	public final ForgeConfigSpec.DoubleValue NERFACTOR;
 
 	protected BorklerConfig(ForgeConfigSpec.Builder builder) {
 		HUNGRY = builder.comment(
@@ -75,15 +86,8 @@ public class BorklerConfig {
 				.defineInRange("water_use", 25, 5, 500);
 		CONVERSION_RATE = builder.comment("The ratio of conversion of water into steam.")
 				.defineInRange("conversion_rate", 1.0, 0.1, 10.0);
+		NERFACTOR = builder.comment("A multiplier (<=1) for how much time solid fuel will burn for in a boiler. "
+				+ "Added after I realized using the same burn time as for the furnace creates"
+				+ " a very overpowered, fuel-conserving boiler.").defineInRange("nerfactor", 0.6, 0.001, 1.0);
 	}
-
-	/*
-	 * You know what? Fuck this shit. Forge is refusing to create a default config
-	 * file with that constructor. Instead of figuring out why and doing so
-	 * appropriately, i'm just going to hardcode the hell out of this shit. Sue me.
-	 */
-
-	public static void sendConfigToClient() {
-	}
-
 }

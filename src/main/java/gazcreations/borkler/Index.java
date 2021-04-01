@@ -20,10 +20,10 @@
 package gazcreations.borkler;
 
 import gazcreations.borkler.blocks.BorklerBlock;
-import gazcreations.borkler.blocks.Steam;
-import gazcreations.borkler.blocks.SteamBlock;
+import gazcreations.borkler.blocks.BorklerTileEntity;
 import gazcreations.borkler.container.BorklerContainer;
-import gazcreations.borkler.entities.BorklerTileEntity;
+import gazcreations.borkler.fluids.Steam;
+import gazcreations.borkler.fluids.SteamBlock;
 import gazcreations.borkler.items.BorklerItem;
 import gazcreations.borkler.items.SteamItem;
 import net.minecraft.inventory.container.Container;
@@ -76,13 +76,12 @@ public abstract class Index {
 
 	@ObjectHolder(value = "borkler:borklercontainer")
 	public static final ContainerType<?> BORKLER_CONTAINER_TYPE = register("borklercontainer",
-			/*new IContainerFactory<BorklerContainer>() {
-
-				@Override
-				public BorklerContainer create(int windowId, PlayerInventory inv, PacketBuffer data) {
-					return new BorklerContainer(windowId, inv, data);
-				}
-			});*/
+			/*
+			 * new IContainerFactory<BorklerContainer>() {
+			 * 
+			 * @Override public BorklerContainer create(int windowId, PlayerInventory inv,
+			 * PacketBuffer data) { return new BorklerContainer(windowId, inv, data); } });
+			 */
 			((windowId, inv, data) -> {
 				return new BorklerContainer(windowId, inv, data);
 			}));

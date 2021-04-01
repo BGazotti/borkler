@@ -21,7 +21,6 @@ package gazcreations.borkler.blocks;
 
 import java.util.function.ToIntFunction;
 
-import gazcreations.borkler.entities.BorklerTileEntity;
 import gazcreations.borkler.network.BorklerData;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -35,7 +34,6 @@ import net.minecraft.fluid.Fluid;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.inventory.InventoryHelper;
 import net.minecraft.item.BucketItem;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.state.BooleanProperty;

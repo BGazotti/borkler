@@ -17,7 +17,7 @@
  *  along with Borkler.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package gazcreations.borkler.blocks;
+package gazcreations.borkler.fluids;
 
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
@@ -35,15 +35,13 @@ public class SteamBlock extends FlowingFluidBlock {
 		super(new Supplier<Steam>() {
 			@Override
 			public Steam get() {
-				// TODO Auto-generated method stub
 				return Index.Fluids.STEAMSOURCE;
 			}
-		}, AbstractBlock.Properties.create(Material.WATER, MaterialColor.LIGHT_GRAY).doesNotBlockMovement().hardnessAndResistance(0.0F).noDrops()
-				.setLightLevel(new ToIntFunction<BlockState>() {
+		}, AbstractBlock.Properties.create(Material.WATER, MaterialColor.LIGHT_GRAY).doesNotBlockMovement()
+				.hardnessAndResistance(0.0F).noDrops().setLightLevel(new ToIntFunction<BlockState>() {
 
 					@Override
 					public int applyAsInt(BlockState value) {
-						// TODO Auto-generated method stub
 						return 7;
 					}
 				}));

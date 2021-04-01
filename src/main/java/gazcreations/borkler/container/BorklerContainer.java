@@ -25,7 +25,7 @@ import java.util.List;
 import org.apache.commons.lang3.tuple.Pair;
 
 import gazcreations.borkler.Index;
-import gazcreations.borkler.entities.BorklerTileEntity;
+import gazcreations.borkler.blocks.BorklerTileEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.IInventory;
@@ -41,34 +41,48 @@ public class BorklerContainer extends Container {
 
 	private IInventory borklerInventory;
 	private List<Pair<FluidStack, Integer>> tanksWithCapacity;
-	private BlockPos tileEntityPos; // TODO add reference to TileEntity, might be needed for networking
+	private BlockPos tileEntityPos; //
 	private BorklerTileEntity borklerTE;
 
+	/**
+	 * This constructor is called on the client when the Boiler is right-clicked.
+	 * 
+	 * @param id
+	 * @param playerInv
+	 * @param data
+	 */
 	public BorklerContainer(int id, PlayerInventory playerInv, PacketBuffer data) {
+		/*
+		 * Note: this 'new Inventory(1)' is a dummy call. The called constructor will
+		 * use the boiler's position (data.readBlockPos()) to retrieve the actual
+		 * BorklerTileEntity's inventory.
+		 */
 		this(id, playerInv, new Inventory(1), data.readBlockPos());
 	}
 
 	/**
 	 * Initializes the Borkler Container with its internal inventory, as well as the
-	 * player's, and an associated Borkler's data.
+	 * player's, and an associated Borkler's data. This constructor is called on the server.
 	 * 
 	 * @param id
 	 * @param playerInv
-	 * @param Ideally,  a BorklerTileEntity
+	 * @param inventory an unused parameter. I might even remove it later.
+	 * @param pos The boiler's position
 	 */
-	public BorklerContainer(int id, PlayerInventory playerInv, IInventory inventory, BlockPos pos/*, BorklerData data*/) {
+	public BorklerContainer(int id, PlayerInventory playerInv, IInventory inventory,
+			BlockPos pos) {
 		super(Index.BORKLER_CONTAINER_TYPE, id);
-		this.borklerInventory = inventory;
+		if (pos != null) {
+			this.borklerInventory = ((BorklerTileEntity) playerInv.player.world.getTileEntity(pos)).getInventory();
+			gazcreations.borkler.Borkler.LOGGER.debug("Workaround implemented.");
+		} else
+			this.borklerInventory = inventory;
 		borklerInventory.openInventory(playerInv.player);
-		addSlot(new Slot(inventory, 0, 28, 27) {
+		addSlot(new Slot(borklerInventory, 0, 28, 27) {
 
 			@Override
 			public boolean isItemValid(ItemStack stack) {
-				boolean valid = inventory.isItemValidForSlot(this.getSlotIndex(), stack);
-				if (!valid)
-					gazcreations.borkler.Borkler.LOGGER
-							.debug("An invalid item has been inserted into a Borkler special slot: "
-									+ stack.getItem().getRegistryName());
+				boolean valid = borklerInventory.isItemValidForSlot(this.getSlotIndex(), stack);
 				return valid;
 			}
 
@@ -92,7 +106,6 @@ public class BorklerContainer extends Container {
 			addSlot(new Slot(playerInv, hotbarSlot, leftCol + hotbarSlot * 18, 127));
 		}
 		if (pos != null) {
-			//this.tanksWithCapacity = data.getTanks();
 			this.tileEntityPos = pos;
 			this.borklerTE = (BorklerTileEntity) playerInv.player.world.getTileEntity(tileEntityPos);
 			if (borklerTE != null) {
@@ -169,7 +182,7 @@ public class BorklerContainer extends Container {
 	public void setTileEntityPos(BlockPos tileEntityPos) {
 		this.tileEntityPos = tileEntityPos;
 	}
-	
+
 	public BorklerTileEntity getTileEntity() {
 		return this.borklerTE;
 	}

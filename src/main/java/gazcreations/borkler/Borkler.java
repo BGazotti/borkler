@@ -25,20 +25,20 @@ import java.util.function.Supplier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import gazcreations.borkler.entities.BorklerTileEntity;
 import gazcreations.borkler.network.BorklerPacketHandler;
 import gazcreations.borkler.proxy.ClientProxy;
+import gazcreations.borkler.recipes.BorklerFuelSerializer;
 import net.minecraft.block.Block;
 import net.minecraft.fluid.Fluid;
 import net.minecraft.inventory.container.ContainerType;
 import net.minecraft.item.Item;
+import net.minecraft.item.crafting.IRecipeSerializer;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegistryEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
@@ -98,10 +98,11 @@ public class Borkler {
 
 	}
 
-	@SubscribeEvent
-	public void sendFuelData(final PlayerLoggedInEvent event) {
-		BorklerPacketHandler.sendToPlayer(event.getPlayer(), BorklerTileEntity.getValidFuelTypes());
-	}
+	/*
+	 * @SubscribeEvent public void sendFuelData(final PlayerLoggedInEvent event) {
+	 * BorklerPacketHandler.sendToPlayer(event.getPlayer(),
+	 * BorklerTileEntity.getValidFuelTypes()); }
+	 */
 
 	/**
 	 * This method sets up some more stuff, such as enforcing the creation of a tag
@@ -117,6 +118,21 @@ public class Borkler {
 		steamTypes.add(() -> Index.Fluids.STEAMSOURCE);
 		FluidTags.createOptional(steam, steamTypes);
 	}
+
+	/*
+	 * @SubscribeEvent public void addReloadListener(final AddReloadListenerEvent
+	 * event) { event.addListener(new ReloadListener<Void>() {
+	 * 
+	 * @Override protected void apply(Void arg0, IResourceManager arg1, IProfiler
+	 * arg2) { MinecraftServer server = null; if ((server =
+	 * ServerLifecycleHooks.getCurrentServer()) != null) { for (ServerWorld w :
+	 * server.getWorlds()) { BorklerTileEntity.addFutureServerTask(w, () ->
+	 * BorklerPacketHandler.sendToAll(BorklerTileEntity.getValidFuelTypes()), true);
+	 * } } }
+	 * 
+	 * @Override protected Void prepare(IResourceManager arg0, IProfiler arg1) {
+	 * return null; } }); }
+	 */
 
 	private void enqueueIMC(final InterModEnqueueEvent event) {
 		// some example code to dispatch IMC to another mod
@@ -181,6 +197,12 @@ public class Borkler {
 		public static void onContainersRegistry(final RegistryEvent.Register<ContainerType<?>> event) {
 			LOGGER.info("Registering ContainerTypes!");
 			event.getRegistry().register(Index.BORKLER_CONTAINER_TYPE);
+		}
+
+		@SubscribeEvent
+		public static void onRecipesRegistry(final RegistryEvent.Register<IRecipeSerializer<?>> event) {
+			LOGGER.info("Registering Recipes!");
+			event.getRegistry().register(BorklerFuelSerializer.BORKLER_FUEL);
 		}
 	}
 }

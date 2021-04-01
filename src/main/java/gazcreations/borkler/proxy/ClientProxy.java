@@ -40,19 +40,18 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
  * @author gazotti
  *
  */
-public class ClientProxy implements Supplier<DistExecutor.SafeRunnable>{
+public class ClientProxy implements Supplier<DistExecutor.SafeRunnable> {
 
+	@SuppressWarnings("unchecked")
 	private void doClientStuff(final FMLCommonSetupEvent evt) {
 		Borkler.LOGGER.info("Registering Screens!");
 		ScreenManager.registerFactory((ContainerType<BorklerContainer>) Index.BORKLER_CONTAINER_TYPE,
 				BorklerScreen::new);
 
-		
 	}
 
 	@Override
-	public  SafeRunnable get() {
-		// TODO Auto-generated method stub
+	public SafeRunnable get() {
 		return new SafeRunnable() {
 			private static final long serialVersionUID = 1L;
 
