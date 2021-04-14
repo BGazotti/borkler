@@ -106,15 +106,12 @@ public class BorklerData {
 		return null;
 	}
 
-	// TODO the switch will be made. Need the full CompoundNBT, not just custom
-	// tags.
 	public static void encode(CompoundNBT data, PacketBuffer packet) {
 		packet.writeCompoundTag(data);
 	}
 
 	/**
-	 * This is where the magic happens. TODO implement. Magic is not happening yet.
-	 * 
+	 * This is where the magic happens. 
 	 * @param data
 	 * @param context
 	 */

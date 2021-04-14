@@ -141,7 +141,6 @@ public abstract class Steam extends FlowingFluid {
 	 */
 	@Override
 	protected void beforeReplacingBlock(IWorld worldIn, BlockPos pos, BlockState state) {
-		// TODO implement
 	}
 
 	/**

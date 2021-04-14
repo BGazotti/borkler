@@ -57,10 +57,9 @@ import net.minecraftforge.fml.client.gui.GuiUtils;
 @OnlyIn(Dist.CLIENT)
 public class BorklerScreen extends ContainerScreen<BorklerContainer> implements IHasContainer<BorklerContainer> {
 
-	private static final ResourceLocation guiTexture = new ResourceLocation("borkler", "textures/gui/steam_boiler.png");
-	private static final ResourceLocation overlayTexture = new ResourceLocation("borkler",
+	public static final ResourceLocation guiTexture = new ResourceLocation("borkler", "textures/gui/steam_boiler.png");
+	public static final ResourceLocation overlayTexture = new ResourceLocation("borkler",
 			"textures/gui/boiler_overlay.png");
-	// private List<Pair<FluidStack, Integer>> fluids;
 	private TankSimulator[] tanks;
 	private BorklerTileEntity ent;
 

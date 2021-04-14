@@ -17,7 +17,7 @@
  *  along with Borkler.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package gazcreations.borkler.compat;
+package gazcreations.borkler.compat.crafttweaker;
 
 import org.openzen.zencode.java.ZenCodeType;
 
@@ -53,9 +53,8 @@ public class BorklerTweaker implements IRecipeManager {
 	@ZenCodeType.Method
 	public final void addFuel(String recipeName, IFluidStack fluid, int burnTime) {
 		ResourceLocation reciPath = new ResourceLocation("crafttweaker", fixRecipeName(recipeName));
-		final BorklerFuel fuel = new BorklerFuel(fluid.getFluid().getInternal(), burnTime, reciPath);
+		final BorklerFuel fuel = new BorklerFuel(fluid.getFluid(), burnTime, reciPath);
 		CraftTweakerAPI.apply(new ActionAddFluidRecipe(this, fuel));
-		// BorklerTileEntity.addFuel(fluid.getFluid().getInternal(), burnTime);
 	}
 
 }

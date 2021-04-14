@@ -274,7 +274,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * @return The burn time, in ticks, for a given solid fuel, corrected by
 	 *         {@link BorklerConfig#NERFACTOR}.
 	 */
-	private int nerfdBurnTime(ItemStack item) {
+	public static int nerfdBurnTime(ItemStack item) {
 		int defaultBT = ForgeHooks.getBurnTime(item);
 		return defaultBT > 0 ? Math.toIntExact(Math.round(Math.floor(defaultBT * BorklerConfig.CONFIG.NERFACTOR.get())))
 				: -1;
@@ -509,7 +509,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * @param stack
 	 * @return true if this ItemStack has the FluidHandler Capability.
 	 */
-	private boolean isActuallyALiquid(ItemStack stack) {
+	boolean isActuallyALiquid(ItemStack stack) {
 		return stack.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY).isPresent();
 	}
 

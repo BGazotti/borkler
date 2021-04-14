@@ -119,22 +119,7 @@ public class Borkler {
 		FluidTags.createOptional(steam, steamTypes);
 	}
 
-	/*
-	 * @SubscribeEvent public void addReloadListener(final AddReloadListenerEvent
-	 * event) { event.addListener(new ReloadListener<Void>() {
-	 * 
-	 * @Override protected void apply(Void arg0, IResourceManager arg1, IProfiler
-	 * arg2) { MinecraftServer server = null; if ((server =
-	 * ServerLifecycleHooks.getCurrentServer()) != null) { for (ServerWorld w :
-	 * server.getWorlds()) { BorklerTileEntity.addFutureServerTask(w, () ->
-	 * BorklerPacketHandler.sendToAll(BorklerTileEntity.getValidFuelTypes()), true);
-	 * } } }
-	 * 
-	 * @Override protected Void prepare(IResourceManager arg0, IProfiler arg1) {
-	 * return null; } }); }
-	 */
-
-	private void enqueueIMC(final InterModEnqueueEvent event) {
+	void enqueueIMC(final InterModEnqueueEvent event) {
 		// some example code to dispatch IMC to another mod
 		// InterModComms.sendTo("borkler", "helloworld", () -> {
 		// LOGGER.info("Hello world from the MDK");
@@ -142,7 +127,7 @@ public class Borkler {
 
 	}
 
-	private void processIMC(final InterModProcessEvent event) {
+	void processIMC(final InterModProcessEvent event) {
 		// some example code to receive and process InterModComms from other mods
 		// LOGGER.info("Got IMC {}",
 		// event.getIMCStream().map(m ->

@@ -13,15 +13,30 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-//crafttweaker support
 repositories {
+	//crafttweaker
     maven { url 'https://maven.blamejared.com' }
+
+	//JEI
+	maven {
+	    // location of the maven that hosts JEI files
+	    name = "Progwml6 maven"
+	    url = "https://dvs1.progwml6.com/files/maven/"
+	  }
+	  maven {
+	    // location of a maven mirror for JEI files, as a fallback
+	    name = "ModMaven"
+	    url = "https://modmaven.k-4u.nl"
+	  }
 }
 
 dependencies {
 	
 	//runtimeOnly fg.deobf("com.blamejared.crafttweaker:CraftTweaker-1.16.3:[7.0.0.48]")
-	compileOnly fg.deobf("com.blamejared.crafttweaker:CraftTweaker-1.16.3:[7.0.0.48]")
+	compileOnly fg.deobf("com.blamejared.crafttweaker:CraftTweaker-1.16.5:[7.1.0.203]")
+	compileOnly fg.deobf("mezz.jei:jei-1.16.5:7.6.1.75:api")
+    // at runtime, use the full JEI jar
+    runtimeOnly fg.deobf("mezz.jei:jei-1.16.5:7.6.1.75")
 	
 }
 
@@ -152,9 +167,9 @@ jar {
         attributes([
             "Specification-Title": "borkler",
             "Specification-Vendor": "gazcreations",
-            "Specification-Version": "0.2.1", // We are version 1 of ourselves
+            "Specification-Version": "0.2.2", // We are version 1 of ourselves
             "Implementation-Title": "borkler",
-            "Implementation-Version": "0.2.1",
+            "Implementation-Version": "0.2.2",
             "Implementation-Vendor" :"gazcreations",
             "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
         ])

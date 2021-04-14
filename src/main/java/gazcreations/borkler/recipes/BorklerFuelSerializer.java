@@ -56,7 +56,7 @@ public class BorklerFuelSerializer extends ForgeRegistryEntry<IRecipeSerializer<
 			Fluid fluid = ForgeRegistries.FLUIDS.getValue(new ResourceLocation(fluidName));
 			int burnTime = json.get("burnTime").getAsInt();
 			gazcreations.borkler.Borkler.LOGGER.debug("Loaded fuel recipe for " + fluidName);
-			return new BorklerFuel(fluid, burnTime, recipeId);
+			return new BorklerFuel(fluid, burnTime);
 		} catch (Exception e) {
 			gazcreations.borkler.Borkler.LOGGER
 					.debug("Something went wrong while trying to deserialize a borkler json recipe: ", e);

@@ -26,9 +26,11 @@ import net.minecraft.item.crafting.IRecipeSerializer;
 import net.minecraft.item.crafting.IRecipeType;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
+import net.minecraftforge.fluids.FluidStack;
 
 /**
- * A custom class representing a "Crafting Recipe" for a Borkler fluid fuel.
+ * A custom class representing a "Crafting Recipe" for a Borkler fuel. Used
+ * mainly for JEI integration, but also to standardize fuel lookup.
  * 
  * @author gazotti
  *
@@ -41,13 +43,21 @@ public class BorklerFuel implements IRecipe<BorklerTileEntity> {
 	public static final IRecipeType<BorklerFuel> TYPE = IRecipeType.register("borkler:borkler_fuel");
 
 	public BorklerFuel(Fluid fluid, int burnTime) {
-		this(fluid, burnTime, new ResourceLocation("borkler:" + fluid.getRegistryName().toString() + "_fuel"));
+		this(fluid, burnTime, getFluidName(fluid));
 	}
 
 	public BorklerFuel(Fluid fluid, int burnTime, ResourceLocation id) {
 		this.fluid = fluid;
 		this.burnTime = burnTime;
 		this.id = id;
+	}
+
+	/**
+	 * 
+	 */
+	private static ResourceLocation getFluidName(Fluid fluid) {
+		String[] truncated = fluid.getRegistryName().toString().split(":");
+		return new ResourceLocation("borkler", truncated[truncated.length - 1]);
 	}
 
 	/**
@@ -65,6 +75,24 @@ public class BorklerFuel implements IRecipe<BorklerTileEntity> {
 				return rec.burnTime;
 		}
 		return 0;
+	}
+
+	/**
+	 * @return this fuel's burn time, in ticks
+	 */
+	public int getBurnTime() {
+		return this.burnTime;
+	}
+
+	/**
+	 * @return a {@link FluidStack} containing 1 mB of this recipe's {@link Fluid}.
+	 */
+	public FluidStack getFluid() {
+		return new FluidStack(fluid, 1);
+	}
+
+	public static void registerSolidRecipes(Object o) {
+
 	}
 
 	@Override

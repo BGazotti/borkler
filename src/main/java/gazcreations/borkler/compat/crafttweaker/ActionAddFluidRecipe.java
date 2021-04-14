@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with Borkler.  If not, see <https://www.gnu.org/licenses/>.
  */
-package gazcreations.borkler.compat;
+package gazcreations.borkler.compat.crafttweaker;
 
 import com.blamejared.crafttweaker.api.managers.IRecipeManager;
 import com.blamejared.crafttweaker.impl.actions.recipes.ActionAddRecipe;
