@@ -50,7 +50,7 @@ public class BorklerFuelSerializer extends ForgeRegistryEntry<IRecipeSerializer<
 
 	@Nullable
 	@Override
-	public BorklerFuel read(ResourceLocation recipeId, JsonObject json) {
+	public BorklerFuel fromJson(ResourceLocation recipeId, JsonObject json) {
 		try {
 			String fluidName = json.get("fluid").getAsString();
 			Fluid fluid = ForgeRegistries.FLUIDS.getValue(new ResourceLocation(fluidName));
@@ -65,14 +65,14 @@ public class BorklerFuelSerializer extends ForgeRegistryEntry<IRecipeSerializer<
 	}
 
 	@Override
-	public BorklerFuel read(ResourceLocation recipeId, PacketBuffer buffer) {
+	public BorklerFuel fromNetwork(ResourceLocation recipeId, PacketBuffer buffer) {
 		Fluid fluid = buffer.readFluidStack().getFluid();
 		int burnTime = buffer.readInt();
 		return new BorklerFuel(fluid, burnTime, recipeId);
 	}
 
 	@Override
-	public void write(PacketBuffer buffer, BorklerFuel recipe) {
+	public void toNetwork(PacketBuffer buffer, BorklerFuel recipe) {
 		buffer.writeFluidStack(new FluidStack(recipe.fluid, 1));
 		buffer.writeInt(recipe.burnTime);
 	}

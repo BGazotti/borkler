@@ -45,7 +45,7 @@ public class ClientProxy implements Supplier<DistExecutor.SafeRunnable> {
 	@SuppressWarnings("unchecked")
 	private void doClientStuff(final FMLCommonSetupEvent evt) {
 		Borkler.LOGGER.info("Registering Screens!");
-		ScreenManager.registerFactory((ContainerType<BorklerContainer>) Index.BORKLER_CONTAINER_TYPE,
+		ScreenManager.register((ContainerType<BorklerContainer>) Index.BORKLER_CONTAINER_TYPE,
 				BorklerScreen::new);
 
 	}

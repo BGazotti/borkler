@@ -37,8 +37,8 @@ public class SteamBlock extends FlowingFluidBlock {
 			public Steam get() {
 				return Index.Fluids.STEAMSOURCE;
 			}
-		}, AbstractBlock.Properties.create(Material.WATER, MaterialColor.LIGHT_GRAY).doesNotBlockMovement()
-				.hardnessAndResistance(0.0F).noDrops().setLightLevel(new ToIntFunction<BlockState>() {
+		}, AbstractBlock.Properties.of(Material.WATER, MaterialColor.COLOR_LIGHT_GRAY).noCollission()
+				.strength(0.0F).noDrops().lightLevel(new ToIntFunction<BlockState>() {
 
 					@Override
 					public int applyAsInt(BlockState value) {

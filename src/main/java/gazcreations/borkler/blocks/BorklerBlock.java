@@ -27,7 +27,6 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.ILiquidContainer;
 import net.minecraft.block.SoundType;
 import net.minecraft.block.material.Material;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.fluid.Fluid;
@@ -38,6 +37,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.state.BooleanProperty;
 import net.minecraft.state.StateContainer;
+import net.minecraft.state.StateContainer.Builder;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ActionResultType;
 import net.minecraft.util.Hand;
@@ -83,18 +83,29 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	 * pickaxe.
 	 */
 	public BorklerBlock() {
-		super(Properties.create(Material.PISTON).hardnessAndResistance(2.0f).sound(SoundType.STONE)
-				.harvestTool(ToolType.PICKAXE).harvestLevel(0).setLightLevel(new ToIntFunction<BlockState>() {
-					@Override
-					public int applyAsInt(BlockState value) {
-						if (value.get(BorklerBlock.ACTIVE))
-							return 13;
-						else
-							return 0;
-					}
-				}));
+		super(Properties.of(Material.PISTON).strength(2.0f).sound(SoundType.STONE).harvestTool(ToolType.PICKAXE)
+				.harvestLevel(0));
 		this.setRegistryName("borkler", "steam_boiler");
-		this.setDefaultState(stateContainer.getBaseState().with(ACTIVE, false));
+		Builder<Block, BlockState> b = new Builder<Block, BlockState>(this);
+		this.createBlockStateDefinition(b);
+		this.registerDefaultState(
+				this.defaultBlockState().setValue(ACTIVE, Boolean.valueOf(false)));
+		this.properties.lightLevel(new ToIntFunction<BlockState>() {
+
+			@Override
+			public int applyAsInt(BlockState value) {
+				if (value.getValue(ACTIVE))
+					return 13;
+				else
+					return 0;
+			}
+		});
+		// TODO there must be a better way of doing this
+		// for (BlockState s : stateDefinition.getPossibleStates()) {
+		// if (!s.getValue(ACTIVE)) {
+		// registerDefaultState(s);
+		// }
+		// }
 	}
 
 	/**
@@ -112,23 +123,23 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	 * @return
 	 */
 	@Override
-	public ActionResultType onBlockActivated(BlockState state, World worldIn, BlockPos pos, PlayerEntity player,
-			Hand handIn, BlockRayTraceResult hit) {
-		if (!worldIn.isRemote) {
-			ItemStack held = player.getHeldItem(handIn);
+	public ActionResultType use(BlockState state, World worldIn, BlockPos pos, PlayerEntity player, Hand handIn,
+			BlockRayTraceResult hit) {
+		if (!worldIn.isClientSide) {
+			ItemStack held = player.getItemInHand(handIn);
 			if (held.getItem() instanceof BucketItem) {
-				boolean filled = this.receiveFluid(worldIn, pos, state,
-						((BucketItem) held.getItem()).getFluid().getDefaultState());
+				boolean filled = this.placeLiquid(worldIn, pos, state,
+						((BucketItem) held.getItem()).getFluid().defaultFluidState());
 				if (filled) {
 					held.setCount(held.getCount() - 1);
-					player.inventory.addItemStackToInventory(new ItemStack(Items.BUCKET, 1));
+					player.inventory.add(new ItemStack(Items.BUCKET, 1));
 					return ActionResultType.SUCCESS;
 				}
 				return ActionResultType.PASS;
 			}
 			BorklerTileEntity te = getTileEntity(worldIn, pos);
 			NetworkHooks.openGui((ServerPlayerEntity) player, te, ((t) -> {
-				BorklerData.encodePos(te.getPos(), t);
+				BorklerData.encodePos(te.getBlockPos(), t);
 			}));
 
 		}
@@ -182,7 +193,7 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	 * block.
 	 */
 	@Override
-	protected void fillStateContainer(StateContainer.Builder<Block, BlockState> stateContainer) {
+	protected void createBlockStateDefinition(StateContainer.Builder<Block, BlockState> stateContainer) {
 		stateContainer.add(ACTIVE);
 	}
 
@@ -195,7 +206,7 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	 * @return
 	 */
 	private BorklerTileEntity getTileEntity(IBlockReader world, BlockPos pos) {
-		TileEntity temp = world.getTileEntity(pos);
+		TileEntity temp = world.getBlockEntity(pos);
 		if (temp instanceof BorklerTileEntity)
 			return (BorklerTileEntity) temp;
 		throw new RuntimeException(
@@ -204,11 +215,8 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	}
 
 	@Override
-	public void onBlockPlacedBy(World worldIn, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack) {
-		BorklerTileEntity te = getTileEntity(worldIn, pos);
-		if (stack.hasDisplayName()) {
-			te.setCustomName(stack.getDisplayName());
-		}
+	public void onPlace(BlockState state, World world, BlockPos pos, BlockState otherState, boolean wut) {
+		BorklerTileEntity te = getTileEntity(world, pos);
 		te.updateFluidConnections();
 		te.updateItemConnections();
 	}
@@ -217,7 +225,7 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	 * @return see {@link BorklerTileEntity#isFluidValid(Fluid)}
 	 */
 	@Override
-	public boolean canContainFluid(IBlockReader arg0, BlockPos arg1, BlockState arg2, Fluid arg3) {
+	public boolean canPlaceLiquid(IBlockReader arg0, BlockPos arg1, BlockState arg2, Fluid arg3) {
 		return getTileEntity(arg0, arg1).getTankForFluid(arg3) >= 0;
 	}
 
@@ -230,16 +238,16 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	 * @return whether the fluid was successfully inserted or not
 	 */
 	@Override
-	public boolean receiveFluid(IWorld arg0, BlockPos arg1, BlockState arg2, FluidState arg3) {
+	public boolean placeLiquid(IWorld arg0, BlockPos arg1, BlockState arg2, FluidState arg3) {
 		BorklerTileEntity tileEntity = getTileEntity(arg0, arg1);
-		int tank = tileEntity.getTankForFluid(arg3.getFluid());
+		int tank = tileEntity.getTankForFluid(arg3.getType());
 		if (tank < 0 || tank == 2)
 			return false;
 		if (tileEntity.getTankCapacity(tank) - tileEntity.getFluidInTank(tank).getAmount() < 1000) // TODO not hardcode
 																									// bucket volume
 			return false;
-		if (tileEntity.fill(new FluidStack(arg3.getFluid(), 1000), FluidAction.SIMULATE) > 0) {
-			return tileEntity.fill(new FluidStack(arg3.getFluid(), 1000), FluidAction.EXECUTE) > 0;
+		if (tileEntity.fill(new FluidStack(arg3.getType(), 1000), FluidAction.SIMULATE) > 0) {
+			return tileEntity.fill(new FluidStack(arg3.getType(), 1000), FluidAction.EXECUTE) > 0;
 		}
 		return false;
 	}
@@ -248,10 +256,14 @@ public class BorklerBlock extends Block implements ILiquidContainer {
 	 * Overriden to drop items in the Boiler's inventory if it is destroyed.
 	 */
 	@Override
-	public void onBlockHarvested(World worldIn, BlockPos pos, BlockState state, PlayerEntity player) {
-		super.onBlockHarvested(worldIn, pos, state, player);
-		getTileEntity(worldIn, pos).remove();
-		InventoryHelper.dropInventoryItems(worldIn, pos, getTileEntity(worldIn, pos));
+	public boolean removedByPlayer(BlockState state, World world, BlockPos pos, PlayerEntity player,
+			boolean willHarvest, FluidState fluid) {
+		boolean harvested = super.removedByPlayer(state, world, pos, player, false, fluid);
+		if (harvested && willHarvest) {
+			getTileEntity(world, pos).setRemoved();
+			InventoryHelper.dropContents(world, pos, getTileEntity(world, pos));
+			super.removedByPlayer(state, world, pos, player, willHarvest, fluid);
+		}
+		return harvested;
 	}
-
 }

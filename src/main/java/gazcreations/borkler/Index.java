@@ -67,7 +67,7 @@ public abstract class Index {
 
 	@ObjectHolder(value = "borkler:borklertile")
 	public static final TileEntityType<?> BORKLER_TE_TYPE = TileEntityType.Builder
-			.create(BorklerTileEntity::new, Index.Blocks.BORKLERBLOCK).build(null)
+			.of(BorklerTileEntity::new, Index.Blocks.BORKLERBLOCK).build(null)
 			.setRegistryName("borkler", "borklertile");
 
 	@SuppressWarnings("unchecked")

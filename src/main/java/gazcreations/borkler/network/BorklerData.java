@@ -107,7 +107,7 @@ public class BorklerData {
 	}
 
 	public static void encode(CompoundNBT data, PacketBuffer packet) {
-		packet.writeCompoundTag(data);
+		packet.writeNbt(data);
 	}
 
 	/**
@@ -120,7 +120,7 @@ public class BorklerData {
 	public static void handlePacket(BorklerData data, Supplier<Context> contextSupplier) {
 		Context context = contextSupplier.get();
 		context.enqueueWork(() -> {
-			Container container = Minecraft.getInstance().player.openContainer;
+			Container container = Minecraft.getInstance().player.containerMenu;
 			if (container != null && container instanceof BorklerContainer) {
 				BorklerContainer bc = (BorklerContainer) container;
 				bc.setTanks(data.tanks);

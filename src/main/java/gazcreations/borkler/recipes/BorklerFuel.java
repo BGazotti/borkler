@@ -70,8 +70,8 @@ public class BorklerFuel implements IRecipe<BorklerTileEntity> {
 	 * @return The burn time in ticks/mB; 0 if the fluid is not fuel
 	 */
 	public static int getBurnTime(Fluid fluid, World world) {
-		for (BorklerFuel rec : world.getRecipeManager().getRecipesForType(BorklerFuel.TYPE)) {
-			if (rec.fluid.isEquivalentTo(fluid))
+		for (BorklerFuel rec : world.getRecipeManager().getAllRecipesFor(BorklerFuel.TYPE)) {
+			if (rec.fluid.isSame(fluid))
 				return rec.burnTime;
 		}
 		return 0;
@@ -97,21 +97,21 @@ public class BorklerFuel implements IRecipe<BorklerTileEntity> {
 
 	@Override
 	public boolean matches(BorklerTileEntity inv, World worldIn) {
-		return inv.getFluidInTank(1).getFluid().isEquivalentTo(fluid);
+		return inv.getFluidInTank(1).getFluid().isSame(fluid);
 	}
 
 	@Override
-	public ItemStack getCraftingResult(BorklerTileEntity inv) {
+	public ItemStack assemble(BorklerTileEntity inv) {
 		return ItemStack.EMPTY;
 	}
 
 	@Override
-	public boolean canFit(int width, int height) {
+	public boolean canCraftInDimensions(int width, int height) {
 		return false;
 	}
 
 	@Override
-	public ItemStack getRecipeOutput() {
+	public ItemStack getResultItem() {
 		return ItemStack.EMPTY;
 	}
 
@@ -129,4 +129,5 @@ public class BorklerFuel implements IRecipe<BorklerTileEntity> {
 	public IRecipeType<?> getType() {
 		return TYPE;
 	}
+
 }

@@ -21,14 +21,15 @@ package gazcreations.borkler.blocks;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import gazcreations.borkler.BorklerConfig;
 import gazcreations.borkler.Index;
+import gazcreations.borkler.compat.MekaBorkler;
 import gazcreations.borkler.container.BorklerContainer;
 import gazcreations.borkler.recipes.BorklerFuel;
+import it.unimi.dsi.fastutil.objects.ObjectArraySet;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
@@ -80,53 +81,6 @@ import net.minecraftforge.registries.ForgeRegistries;
  *
  */
 public class BorklerTileEntity extends LockableTileEntity implements ITickableTileEntity, IFluidHandler, IItemHandler {
-
-	/**
-	 * A set of valid {@link Fluid} types to use as fuel.
-	 */
-	// @Deprecated
-	// private static BorklerFluidList validuels = BorklerFluidList.getDefault();
-
-	/**
-	 * @return A copy (in case you're tempted to alter its contents) of the map of
-	 *         valid fuels and burn times.
-	 */
-	// public static BorklerFluidList getValidFuelTypes() {
-	// BorklerFluidList copy = new BorklerFluidList(validuels);
-	// gazcreations.borkler.Borkler.LOGGER.debug("getting valid fuel types: " +
-	// copy);
-	// return copy;
-	// }
-
-	// public static void addFuel(Fluid fuel, int burnTime) {
-	// validuels.put(fuel, burnTime);
-	// if (ServerLifecycleHooks.getCurrentServer() != null) {
-	// for (PlayerEntity player :
-	// ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayers()) {
-	// addFutureServerTask(player.world, () ->
-	// BorklerPacketHandler.sendToPlayer(player, validuels), true);
-	// }
-	// }
-	// }
-
-	/**
-	 * Called when a client receives a BorklerFluidList update from the server, on
-	 * login or reload.
-	 * 
-	 * @param fluids
-	 * @param context
-	 */
-	// public static void updateValidFuelList(BorklerFluidList fluids,
-	// java.util.function.Supplier<Context> context) {
-	// Context ctx = context.get();
-	// if (ctx.getDirection() == NetworkDirection.LOGIN_TO_CLIENT
-	// || ctx.getDirection() == NetworkDirection.PLAY_TO_CLIENT) {
-	// gazcreations.borkler.Borkler.LOGGER.debug("updateValidFuelList has been
-	// called; list is " + fluids);
-	// validuels = fluids;
-	// }
-	// ctx.setPacketHandled(true);
-	// }
 
 	/**
 	 * The tier of this boiler. Currently unused. <br>
@@ -203,6 +157,8 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 */
 	private LazyOptional<IItemHandler> itemHandlerCapability;
 
+	private LazyOptional<MekaBorkler> gasHandlerWrapper;
+
 	/**
 	 * A constructor. Populates the Borkler's tanks with empty FluidStacks,
 	 * initializes its inventory and sets burnTime to zero.
@@ -220,15 +176,16 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			 * Calls this TileEntity's markDirty() method.
 			 */
 			@Override
-			public void markDirty() {
-				BorklerTileEntity.this.markDirty();
+			public void setChanged() {
+				super.setChanged();
+				BorklerTileEntity.this.setChanged();
 			}
 
 			/**
 			 * Checks the burn time of the itemstack to see if it can be used as fuel.
 			 */
 			@Override
-			public boolean isItemValidForSlot(int slot, ItemStack stack) {
+			public boolean canPlaceItem(int slot, ItemStack stack) {
 				List<Item> hardcoded = new ArrayList<>();
 				hardcoded.add(Items.BUCKET);
 				return hardcoded.contains(stack.getItem()) || stack.isEmpty() || ForgeHooks.getBurnTime(stack) > 0;
@@ -238,10 +195,10 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		this.isActive = false;
 		this.fluidConnections = Collections.emptySet();
 		this.itemConnections = Collections.emptySet();
-		this.world = (World) world;
-		if (world != null) { // index TEs will not run this
-			addFutureServerTask(this.world, () -> updateFluidConnections(), false);
-			addFutureServerTask(this.world, () -> updateItemConnections(), false);
+		this.level = (World) world;
+		if (level != null) { // index TEs will not run this
+			addFutureServerTask(this.level, () -> updateFluidConnections(), false);
+			addFutureServerTask(this.level, () -> updateItemConnections(), false);
 		}
 	}
 
@@ -259,15 +216,22 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	}
 
 	@Override
-	public void markDirty() {
-		if (this.world != null) {
+	public void setChanged() {
+		if (this.level != null) {
 			if (this.ticksSinceLastClientUpdate > 1) {
-				addFutureServerTask(world, () -> this.world.notifyBlockUpdate(getPos(),
-						getWorld().getBlockState(getPos()), getWorld().getBlockState(getPos()), 3), true);
+				addFutureServerTask(level, () -> this.level.sendBlockUpdated(getBlockPos(),
+						getWorld().getBlockState(getBlockPos()), getWorld().getBlockState(getBlockPos()), 3), true);
 				this.ticksSinceLastClientUpdate = 0;
 			}
 		}
-		super.markDirty();
+		super.setChanged();
+	}
+
+	/**
+	 * @return
+	 */
+	private IBlockReader getWorld() {
+		return this.getLevel();
 	}
 
 	/**
@@ -305,7 +269,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	@Override
 	public ItemStack getStackInSlot(int slot) {
 		// return new ItemStack(() -> solidFuel.getItem(), solidFuel.getCount());
-		return solidFuel.getStackInSlot(0);
+		return solidFuel.getItem(0);
 	}
 
 	/**
@@ -315,17 +279,17 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * 
 	 * @param active
 	 */
-	private final void setActive(final boolean active) {
+	private void setActive(final boolean active) {
 		if (this.isActive == active) {
 			return; // nothing to do, nothing changed
 		}
 		this.isActive = active;
-		if (world != null)
-			this.world.setBlockState(pos,
-					Index.Blocks.BORKLERBLOCK.getStateContainer().getBaseState().with(BorklerBlock.ACTIVE, active));
+		if (level != null)
+			this.level.setBlockAndUpdate(worldPosition,
+					Index.Blocks.BORKLERBLOCK.getStateDefinition().any().setValue(BorklerBlock.ACTIVE, active));
 		requestModelDataUpdate();
-		this.updateContainingBlockInfo();
-		markDirty();
+//		this.updateContainingBlockInfo();
+		setChanged();
 	}
 
 	@Override
@@ -336,7 +300,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		if (!isItemValid(0, stack))
 			return stack;
 
-		ItemStack existing = this.solidFuel.getStackInSlot(0);
+		ItemStack existing = this.solidFuel.getItem(0);
 		int limit = getSlotLimit(0);
 		if (!existing.isEmpty()) {
 			if (!ItemHandlerHelper.canItemStacksStack(stack, existing))
@@ -351,13 +315,12 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 
 		if (!simulate) {
 			if (existing.isEmpty()) {
-				solidFuel.setInventorySlotContents(0,
-						reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, limit) : stack);
+				solidFuel.setItem(0, reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, limit) : stack);
 			} else {
 				existing.grow(reachedLimit ? limit : stack.getCount());
 
 			}
-			markDirty();
+			setChanged();
 		}
 		return reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, stack.getCount() - limit) : ItemStack.EMPTY;
 	}
@@ -389,15 +352,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 */
 	@Override
 	public boolean isItemValid(int slot, ItemStack stack) {
-		return solidFuel.isItemValidForSlot(0, stack);
-	}
-
-	/**
-	 * See {@link BorklerTileEntity#isItemValid(int, ItemStack)}.
-	 */
-	@Override
-	public boolean isItemValidForSlot(int slot, ItemStack stack) {
-		return solidFuel.isItemValidForSlot(0, stack);
+		return solidFuel.canAddItem(stack);
 	}
 
 	/**
@@ -468,14 +423,13 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	public boolean isFluidValid(int tank, FluidStack stack) {
 		switch (tank) {
 		case 0:
-			return stack.getFluid().isIn(FluidTags.WATER);
+			return stack.getFluid().is(FluidTags.WATER);
 		case 1:
 			// return validFuels.containsKey(stack.getFluid());
-			return BorklerFuel.getBurnTime(stack.getFluid(), world) > 0;
+			return BorklerFuel.getBurnTime(stack.getFluid(), level) > 0;
 		case 2:
-			return stack.getFluid().isEquivalentTo(Index.Fluids.STEAM)
-					|| stack.getFluid().isEquivalentTo(Index.Fluids.STEAMSOURCE)
-					|| stack.getFluid().isIn(FluidTags.getCollection().get(new ResourceLocation("forge:fluids/steam")));
+			return stack.getFluid().isSame(Index.Fluids.STEAM) || stack.getFluid().isSame(Index.Fluids.STEAMSOURCE)
+					|| stack.getFluid().is(FluidTags.getAllTags().getTag(new ResourceLocation("forge:fluids/steam")));
 		}
 		return false;
 	}
@@ -489,13 +443,13 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * @return 0 if water, 1 if fuel, 2 if steam, or -1 if neither.
 	 */
 	public byte getTankForFluid(Fluid fluid) {
-		if (fluid.isIn(FluidTags.WATER))
+		if (fluid.is(FluidTags.WATER))
 			return 0;
 		// if (validFuels.containsKey(fluid)) {
-		if (BorklerFuel.getBurnTime(fluid, world) > 0) {
+		if (BorklerFuel.getBurnTime(fluid, level) > 0) {
 			return 1;
 		}
-		if (fluid.isIn(FluidTags.getCollection().get(new ResourceLocation("forge:fluids/steam")))) {
+		if (fluid.is(FluidTags.getAllTags().getTag(new ResourceLocation("forge:fluids/steam")))) {
 			return 2;
 		}
 		return -1;
@@ -582,7 +536,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			default:
 				return 0; // we should never get here, plenty of checks by now
 			}
-			markDirty(); // this signals the game that stuff has changed
+			setChanged(); // this signals the game that stuff has changed
 			return selectedTank.getAmount(); // this is how much fluid was inserted
 		} else {
 			if (!selectedTank.isFluidEqual(resource)) {
@@ -594,12 +548,12 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			if (resource.getAmount() < remainingCapacity) {
 				// everything fits!
 				selectedTank.grow(resource.getAmount());
-				markDirty();
+				setChanged();
 				return resource.getAmount();
 			} else {
 				// Tank is filled and there's fluid leftover
 				selectedTank.setAmount(getTankCapacity(whereDoIPutThis));
-				markDirty();
+				setChanged();
 				return remainingCapacity;
 			}
 		}
@@ -615,11 +569,12 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * @param element
 	 * @return
 	 */
-	private <T> LazyOptional<T> addWithListener(Set<LazyOptional<T>> set, LazyOptional<T> element) {
-		set.add(element);
+	public <T> void addWithListener(Set<LazyOptional<T>> set, LazyOptional<T> element) {
 		if (element == null) {
-			return null;
+			//return null;
+			return;
 		}
+		set.add(element);
 		element.addListener(new NonNullConsumer<LazyOptional<T>>() {
 			@Override
 			public void accept(LazyOptional<T> t) {
@@ -628,13 +583,13 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 				set.remove(element);
 			}
 		});
-		return element;
+		//return element;
 	}
 
 	public void updateItemConnections() {
-		if (world.isRemote)
+		if (level.isClientSide)
 			return;
-		Set<LazyOptional<IItemHandler>> consumers = new HashSet<LazyOptional<IItemHandler>>(7, 0.99f) {
+		Set<LazyOptional<IItemHandler>> consumers = new ObjectArraySet<LazyOptional<IItemHandler>>(7) {
 			private static final long serialVersionUID = 1L;
 
 			public boolean add(LazyOptional<IItemHandler> element) {
@@ -643,46 +598,46 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 				return super.add(element);
 			}
 		};
-		gazcreations.borkler.Borkler.LOGGER
-				.debug("Borkler @" + world + " ," + pos + " has been politely asked to update its item connections.");
+		gazcreations.borkler.Borkler.LOGGER.debug("Borkler @" + level + " ," + worldPosition
+				+ " has been politely asked to update its item connections.");
 		LazyOptional<IItemHandler> cap = null;
 		TileEntity te = null;
 		// Trigger warning: the following section may require subsequent use of
 		// eyebleach.
 		// up
-		if ((te = this.world.getTileEntity(getPos().offset(Direction.UP))) != null) {
+		if ((te = this.level.getBlockEntity(getBlockPos().above())) != null) {
 			cap = te.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, Direction.DOWN);
 			// if (cap.isPresent()) override of Set.add will prevent empty Optionals from
 			// being added
 			addWithListener(consumers, cap);
 		}
 		// down
-		if ((te = this.world.getTileEntity(getPos().offset(Direction.DOWN))) != null) {
+		if ((te = this.level.getBlockEntity(getBlockPos().below())) != null) {
 			cap = te.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, Direction.UP);
 			addWithListener(consumers, cap);
 		}
 		// east
-		if ((te = this.world.getTileEntity(getPos().offset(Direction.EAST))) != null) {
+		if ((te = this.level.getBlockEntity(getBlockPos().east())) != null) {
 			cap = te.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, Direction.WEST);
 			addWithListener(consumers, cap);
 		}
 		// west
-		if ((te = this.world.getTileEntity(getPos().offset(Direction.WEST))) != null) {
+		if ((te = this.level.getBlockEntity(getBlockPos().west())) != null) {
 			cap = te.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, Direction.EAST);
 			addWithListener(consumers, cap);
 		}
 		// north
-		if ((te = this.world.getTileEntity(getPos().offset(Direction.NORTH))) != null) {
+		if ((te = this.level.getBlockEntity(getBlockPos().north())) != null) {
 			cap = te.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, Direction.SOUTH);
 			addWithListener(consumers, cap);
 		}
 		// south
-		if ((te = this.world.getTileEntity(getPos().offset(Direction.SOUTH))) != null) {
+		if ((te = this.level.getBlockEntity(getBlockPos().south())) != null) {
 			cap = te.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, Direction.NORTH);
 			addWithListener(consumers, cap);
 		}
-		gazcreations.borkler.Borkler.LOGGER
-				.debug("Borkler @" + world + " ," + pos + "has updated its item connections: " + consumers.toString());
+		gazcreations.borkler.Borkler.LOGGER.debug("Borkler @" + level + " ," + worldPosition
+				+ "has updated its item connections: " + consumers.toString());
 		this.itemConnections = consumers;
 	}
 
@@ -695,9 +650,9 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * 
 	 */
 	public void updateFluidConnections() {
-		if (world.isRemote)
+		if (level.isClientSide)
 			return;
-		Set<LazyOptional<IFluidHandler>> consumers = new HashSet<LazyOptional<IFluidHandler>>(7, 0.99f) {
+		Set<LazyOptional<IFluidHandler>> consumers = new ObjectArraySet<LazyOptional<IFluidHandler>>(7) {
 			private static final long serialVersionUID = 1L;
 
 			public boolean add(LazyOptional<IFluidHandler> element) {
@@ -706,47 +661,21 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 				return super.add(element);
 			}
 		};
-		gazcreations.borkler.Borkler.LOGGER
-				.debug("Borkler @" + world + " ," + pos + " has been politely asked to update its fluid connections.");
+		gazcreations.borkler.Borkler.LOGGER.debug("Borkler @" + level + " ," + worldPosition
+				+ " has been politely asked to update its fluid connections.");
 		gazcreations.borkler.Borkler.LOGGER.debug("Current connections are: " + this.fluidConnections.toString());
 		LazyOptional<IFluidHandler> cap = null;
 		TileEntity te = null;
-		// Trigger warning: the following section may require subsequent use of
-		// eyebleach.
-		// up
-		if ((te = this.world.getTileEntity(getPos().offset(Direction.UP))) != null) {
-			cap = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, Direction.DOWN);
-			// if (cap.isPresent()) override of Set.add will prevent empty Optionals from
-			// being added
-			addWithListener(consumers, cap);
+		for (Direction d : Direction.values()) {
+			if ((te = this.level.getBlockEntity(getBlockPos().relative(d))) != null) {
+				cap = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, d.getOpposite());
+				// if (cap.isPresent()) override of Set.add will prevent empty Optionals from
+				// being added
+				addWithListener(consumers, cap);
+			}
 		}
-		// down
-		if ((te = this.world.getTileEntity(getPos().offset(Direction.DOWN))) != null) {
-			cap = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, Direction.UP);
-			addWithListener(consumers, cap);
-		}
-		// east
-		if ((te = this.world.getTileEntity(getPos().offset(Direction.EAST))) != null) {
-			cap = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, Direction.WEST);
-			addWithListener(consumers, cap);
-		}
-		// west
-		if ((te = this.world.getTileEntity(getPos().offset(Direction.WEST))) != null) {
-			cap = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, Direction.EAST);
-			addWithListener(consumers, cap);
-		}
-		// north
-		if ((te = this.world.getTileEntity(getPos().offset(Direction.NORTH))) != null) {
-			cap = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, Direction.SOUTH);
-			addWithListener(consumers, cap);
-		}
-		// south
-		if ((te = this.world.getTileEntity(getPos().offset(Direction.SOUTH))) != null) {
-			cap = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, Direction.NORTH);
-			addWithListener(consumers, cap);
-		}
-		gazcreations.borkler.Borkler.LOGGER
-				.debug("Borkler @" + world + " ," + pos + "has updated its connections: " + consumers.toString());
+		gazcreations.borkler.Borkler.LOGGER.debug(
+				"Borkler @" + level + " ," + worldPosition + "has updated its connections: " + consumers.toString());
 		this.fluidConnections = consumers;
 	}
 
@@ -756,7 +685,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * The Boiler will attempt to evenly distribute its steam to all consumers.
 	 */
 	private void distributeSteam() {
-		Set<LazyOptional<IFluidHandler>> consumers = new HashSet<>(7, .99f);
+		Set<LazyOptional<IFluidHandler>> consumers = new ObjectArraySet<>(7);
 		for (LazyOptional<IFluidHandler> dest : fluidConnections) {
 			if (dest.isPresent()) {
 				IFluidHandler handler = dest.orElse(null);
@@ -822,11 +751,11 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		// try to pull water
 		FluidStack toDrain = new FluidStack(Fluids.WATER, getTankCapacity(0) - water.getAmount());
 		FluidStack drained = source.drain(toDrain, FluidAction.SIMULATE);
-		if (drained.getFluid().isEquivalentTo(Fluids.WATER) && drained.getAmount() > 0) {
+		if (drained.getFluid().isSame(Fluids.WATER) && drained.getAmount() > 0) {
 			if (water.isEmpty())
 				water = new FluidStack(Fluids.WATER, 0);
 			water.grow(source.drain(toDrain, FluidAction.EXECUTE).getAmount());
-			markDirty();
+			setChanged();
 			// water has been pulled!
 		}
 		// try to pull fuel
@@ -838,7 +767,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 				return;
 			if (drained.getAmount() > 0) {
 				fuel.grow(source.drain(toDrain, FluidAction.EXECUTE).getAmount());
-				markDirty();
+				setChanged();
 				// fuel has been pulled!
 			}
 		}
@@ -852,7 +781,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 			if (toDrain.getAmount() > 0) {
 				fuel = new FluidStack(toDrain.getFluid(), 0);
 				fuel.grow(source.drain(toDrain, FluidAction.EXECUTE).getAmount());
-				markDirty();
+				setChanged();
 				// fuel has been pulled!
 			}
 		}
@@ -888,7 +817,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		FluidStack stack = new FluidStack(steam, drained);
 		if (action.execute() && drained > 0) {
 			steam.shrink(drained);
-			markDirty();
+			setChanged();
 		}
 		return stack;
 	}
@@ -903,7 +832,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 */
 	@Override
 	public Container createMenu(int id, PlayerInventory playerInv, PlayerEntity player) {
-		BorklerContainer menu = new BorklerContainer(id, playerInv, this.solidFuel, getPos());
+		BorklerContainer menu = new BorklerContainer(id, playerInv, this.solidFuel, getBlockPos());
 		return menu;
 	}
 
@@ -911,11 +840,11 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * Credits to the folks at @TeamCofh for helping me make sense of this method.
 	 */
 	@Override
-	public ItemStack decrStackSize(int slot, int amount) {
-		if (solidFuel.getStackInSlot(0).isEmpty())
+	public ItemStack removeItem(int slot, int amount) {
+		if (solidFuel.getItem(0).isEmpty())
 			return ItemStack.EMPTY;
-		ItemStack stack = solidFuel.decrStackSize(0, amount);
-		markDirty();
+		ItemStack stack = solidFuel.removeItem(0, amount);
+		setChanged();
 		return stack;
 	}
 
@@ -923,8 +852,8 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * Wrapper for {@link Inventory#getSizeInventory()}.
 	 */
 	@Override
-	public int getSizeInventory() {
-		return solidFuel.getSizeInventory();
+	public int getContainerSize() {
+		return solidFuel.getContainerSize();
 	}
 
 	/**
@@ -932,14 +861,14 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 */
 	@Override
 	public boolean isEmpty() {
-		return (solidFuel == null || solidFuel.isEmpty() || solidFuel.getStackInSlot(0).isEmpty());
+		return (solidFuel == null || solidFuel.isEmpty() || solidFuel.getItem(0).isEmpty());
 	}
 
 	/**
 	 * Will return true, even though it shouldn't.
 	 */
 	@Override
-	public boolean isUsableByPlayer(PlayerEntity arg0) {
+	public boolean canOpen(PlayerEntity arg0) {
 		return true;
 	}
 
@@ -947,10 +876,10 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * Will just pass this on to its underlying inventory.
 	 */
 	@Override
-	public ItemStack removeStackFromSlot(int arg0) {
-		ItemStack stonks = solidFuel.removeStackFromSlot(0);
+	public ItemStack removeItemNoUpdate(int arg0) {
+		ItemStack stonks = solidFuel.removeItemNoUpdate(0);
 		if (!stonks.isEmpty())
-			markDirty();
+			setChanged();
 		return stonks;
 	}
 
@@ -958,10 +887,10 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * Will check item for validity and pass it on to its underlying inventory.
 	 */
 	@Override
-	public void setInventorySlotContents(int arg0, ItemStack arg1) {
+	public void setItem(int arg0, ItemStack arg1) {
 		if (isItemValid(0, arg1)) {
-			this.solidFuel.setInventorySlotContents(0, arg1);
-			markDirty();
+			this.solidFuel.setItem(0, arg1);
+			setChanged();
 		}
 	}
 
@@ -969,22 +898,22 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * Wrapper for this {@link Inventory#clear()}.
 	 */
 	@Override
-	public void clear() {
-		solidFuel.clear();
-		markDirty();
+	public void clearContent() {
+		solidFuel.clearContent();
+		setChanged();
 	}
 
 	@Override
 	public void onDataPacket(NetworkManager man, SUpdateTileEntityPacket s) {
 		super.onDataPacket(man, s);
-		if (world.isRemote) { // just checking we're clientside
-			this.readCustomData(s.getNbtCompound());
+		if (level.isClientSide) { // just checking we're clientside
+			this.readCustomData(s.getTag());
 		}
 	}
 
 	@Override
 	public SUpdateTileEntityPacket getUpdatePacket() {
-		return new SUpdateTileEntityPacket(pos, 0, writeCustomData());
+		return new SUpdateTileEntityPacket(worldPosition, 0, writeCustomData());
 	}
 
 	/**
@@ -996,7 +925,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 */
 	@Override
 	public void tick() {
-		if (world.isRemote()) // server side only.
+		if (level.isClientSide()) // server side only.
 			return;
 		// first things first: if this boiler is set to auto-input fluids, it will try
 		// to do so before anything else.
@@ -1044,7 +973,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 					int additionalBurnTime = nerfdBurnTime(getStackInSlot(0));
 					if (additionalBurnTime > 0) {
 						// burnTime += ForgeHooks.getBurnTime(decrStackSize(0, 1));
-						burnTime += nerfdBurnTime(decrStackSize(0, 1));
+						burnTime += nerfdBurnTime(removeItem(0, 1));
 						setActive(true);
 						break mainMethod;
 					}
@@ -1053,7 +982,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 					// ok, there is liquid fuel in the boiler. We'll try to burn this.
 					int bitOFuel = Math.min(fuel.getAmount(), 5);
 					// int addBurnTime = validFuels.getInt(fuel.getFluid()) * bitOFuel;
-					int addBurnTime = BorklerFuel.getBurnTime(fuel.getFluid(), world) * bitOFuel;
+					int addBurnTime = BorklerFuel.getBurnTime(fuel.getFluid(), level) * bitOFuel;
 					fuel.shrink(bitOFuel);
 					burnTime += addBurnTime;
 					setActive(true);
@@ -1090,7 +1019,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		if (steam.getAmount() > getTankCapacity(2))
 			steam.setAmount(getTankCapacity(2));
 		burnTime--;
-		markDirty();
+		setChanged();
 	}
 
 	/**
@@ -1104,8 +1033,8 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		stuff.putInt("water", this.water.getAmount());
 		stuff.putString("fuelType", fuel.getFluid().getRegistryName().toString());
 		stuff.putInt("fuelAmount", this.fuel.getAmount());
-		stuff.putString("solidFuelType", this.solidFuel.getStackInSlot(0).getItem().getRegistryName().toString());
-		stuff.putInt("solidFuelAmount", this.solidFuel.getStackInSlot(0).getCount());
+		stuff.putString("solidFuelType", this.solidFuel.getItem(0).getItem().getRegistryName().toString());
+		stuff.putInt("solidFuelAmount", this.solidFuel.getItem(0).getCount());
 		stuff.putBoolean("isActive", isActive);
 		stuff.putInt("burnTime", this.burnTime);
 		return stuff;
@@ -1121,7 +1050,7 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 		water = new FluidStack(Fluids.WATER, nbt.getInt("water"));
 		fuel = new FluidStack(ForgeRegistries.FLUIDS.getValue(new ResourceLocation(nbt.getString("fuelType"))),
 				nbt.getInt("fuelAmount"));
-		solidFuel.setInventorySlotContents(0,
+		solidFuel.setItem(0,
 				new ItemStack(
 						() -> ForgeRegistries.ITEMS.getValue(new ResourceLocation(nbt.getString("solidFuelType"))),
 						nbt.getInt("solidFuelAmount")));
@@ -1135,29 +1064,31 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * for persistence.
 	 */
 	@Override
-	public CompoundNBT write(CompoundNBT nbt) {
+	public CompoundNBT save(CompoundNBT nbt) {
 		writeCustomData();
-		return super.write(nbt);
+		return super.save(nbt);
 	}
 
 	/**
 	 * Populates this TileEntity's fields with values stored in an NBT.
 	 */
 	@Override
-	public void read(BlockState state, CompoundNBT nbtTag) {
-		super.read(state, nbtTag);
+	public void load(BlockState state, CompoundNBT nbtTag) {
+		super.load(state, nbtTag);
 		readCustomData(nbtTag.getCompound("ForgeData"));
-		if (this.world != null)
+		if (this.level != null) {
 			updateFluidConnections();
+			updateItemConnections();
+		}
 	}
 
 	@Override
 	public void onLoad() {
 		super.onLoad();
-		if (world != null && !world.isRemote()) {
-			addFutureServerTask(world, () -> updateFluidConnections(), true);
-			addFutureServerTask(world, () -> updateItemConnections(), true);
-			addFutureServerTask(world, () -> this.updateContainingBlockInfo(), true);
+		if (level != null && !level.isClientSide()) {
+			addFutureServerTask(level, () -> updateFluidConnections(), true);
+			addFutureServerTask(level, () -> updateItemConnections(), true);
+			addFutureServerTask(level, () -> this.setChanged(), true);
 		}
 	}
 
@@ -1172,17 +1103,17 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	 * @param forceFuture
 	 */
 	public static void addFutureServerTask(World world, Runnable task, boolean forceFuture) {
-		LogicalSide side = world.isRemote ? LogicalSide.CLIENT : LogicalSide.SERVER;
+		LogicalSide side = world.isClientSide ? LogicalSide.CLIENT : LogicalSide.SERVER;
 		ThreadTaskExecutor<? super TickDelayedTask> tmp = LogicalSidedProvider.WORKQUEUE.get(side);
 		if (forceFuture) {
 			int tick;
-			if (world.isRemote)
+			if (world.isClientSide)
 				tick = 0;
 			else
-				tick = ((MinecraftServer) tmp).getTickCounter();
-			tmp.enqueue(new TickDelayedTask(tick, task));
+				tick = ((MinecraftServer) tmp).getTickCount();
+			tmp.tell(new TickDelayedTask(tick, task));
 		} else
-			tmp.deferTask(task);
+			tmp.submit(task);
 	}
 
 	/**
@@ -1203,6 +1134,17 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 				itemHandlerCapability = LazyOptional.of(() -> this);
 			}
 			return itemHandlerCapability.cast();
+		}
+		try {
+			if (cap == MekaBorkler.GasHandlerCapability) {
+				gazcreations.borkler.Borkler.LOGGER.debug("something is checking borkler for gases");
+				if (gasHandlerWrapper == null || !gasHandlerWrapper.isPresent()) {
+					gasHandlerWrapper = LazyOptional.of(() -> new MekaBorkler(this));
+				}
+				return gasHandlerWrapper.cast();
+			}
+		} catch (Throwable t) {
+			gazcreations.borkler.Borkler.LOGGER.debug(t); // TODO remove this
 		}
 		return LazyOptional.empty();
 	}
@@ -1225,6 +1167,16 @@ public class BorklerTileEntity extends LockableTileEntity implements ITickableTi
 	@Override
 	public Container createMenu(int id, PlayerInventory player) {
 		return this.createMenu(id, player, player.player);
+	}
+
+	@Override
+	public ItemStack getItem(int p_70301_1_) {
+		return this.getStackInSlot(p_70301_1_);
+	}
+
+	@Override
+	public boolean stillValid(PlayerEntity p_70300_1_) {
+		return solidFuel.stillValid(p_70300_1_);
 	}
 
 }

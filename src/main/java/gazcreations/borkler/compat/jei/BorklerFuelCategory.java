@@ -53,7 +53,7 @@ public abstract class BorklerFuelCategory<T> implements IRecipeCategory<T> {
 
 	@Override
 	public String getTitle() {
-		return I18n.format("container.borkler.steam_boiler");
+		return I18n.get("container.borkler.steam_boiler");
 	}
 
 	@Override

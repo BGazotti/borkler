@@ -28,6 +28,7 @@ import net.minecraft.fluid.FluidState;
 import net.minecraft.item.Item;
 import net.minecraft.item.Items;
 import net.minecraft.state.StateContainer;
+import net.minecraft.state.StateHolder;
 import net.minecraft.util.Direction;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.SoundEvents;
@@ -66,7 +67,7 @@ public abstract class Steam extends FlowingFluid {
 		return net.minecraftforge.fluids.FluidAttributes
 				.builder(new ResourceLocation("block/water_still"), new ResourceLocation("block/water_flow"))
 				.overlay(new ResourceLocation("block/water_overlay")).translationKey("block.borkler.steam_source")
-				.color(0xFFD6EBEB).sound(SoundEvents.ITEM_BUCKET_FILL, SoundEvents.ITEM_BUCKET_EMPTY).density(-5)
+				.color(0xFFD6EBEB).sound(SoundEvents.BUCKET_FILL, SoundEvents.BUCKET_EMPTY).density(-5)
 				.temperature(373).gaseous().viscosity(500).build(Index.Fluids.STEAMSOURCE);
 	}
 
@@ -76,7 +77,7 @@ public abstract class Steam extends FlowingFluid {
 	 * @return Air. Yep.
 	 */
 	@Override
-	public Item getFilledBucket() {
+	public Item getBucket() {
 		return Items.AIR;
 	}
 
@@ -86,7 +87,7 @@ public abstract class Steam extends FlowingFluid {
 	 * @return false
 	 */
 	@Override
-	protected boolean canDisplace(FluidState fluidState, IBlockReader blockReader, BlockPos pos, Fluid fluid,
+	protected boolean canBeReplacedWith(FluidState fluidState, IBlockReader blockReader, BlockPos pos, Fluid fluid,
 			Direction direction) {
 		return false;
 	}
@@ -97,7 +98,7 @@ public abstract class Steam extends FlowingFluid {
 	 * @return 5, the default tick rate for water.
 	 */
 	@Override
-	public int getTickRate(IWorldReader p_205569_1_) {
+	public int getTickDelay(IWorldReader p_205569_1_) {
 		return 5;
 	}
 
@@ -115,7 +116,7 @@ public abstract class Steam extends FlowingFluid {
 	 * @return A reference to flowing steam.
 	 */
 	@Override
-	public Fluid getFlowingFluid() {
+	public Fluid getFlowing() {
 		return Index.Fluids.STEAM;
 	}
 
@@ -123,7 +124,7 @@ public abstract class Steam extends FlowingFluid {
 	 * @return A reference to a steam source block.
 	 */
 	@Override
-	public Fluid getStillFluid() {
+	public Fluid getSource() {
 		return Index.Fluids.STEAMSOURCE;
 	}
 
@@ -132,7 +133,7 @@ public abstract class Steam extends FlowingFluid {
 	 *         produce steam out of steam. Or can you?
 	 */
 	@Override
-	protected boolean canSourcesMultiply() {
+	protected boolean canConvertToSource() {
 		return false;
 	}
 
@@ -140,7 +141,7 @@ public abstract class Steam extends FlowingFluid {
 	 * I should probably implement this method.
 	 */
 	@Override
-	protected void beforeReplacingBlock(IWorld worldIn, BlockPos pos, BlockState state) {
+	protected void beforeDestroyingBlock(IWorld worldIn, BlockPos pos, BlockState state) {
 	}
 
 	/**
@@ -155,17 +156,17 @@ public abstract class Steam extends FlowingFluid {
 	 * Ok, you got me. I do not know what this method does. But it's there, and
 	 * perhaps the reason for the bizarre behaviour?
 	 */
-	@Override
-	public BlockState getBlockState(FluidState state) {
-		return Index.Blocks.STEAM.getDefaultState().with(FlowingFluidBlock.LEVEL,
-				Integer.valueOf(getLevelFromState(state)));
+	public BlockState createLegacyBlock(FluidState state) {
+		return Index.Blocks.STEAM.defaultBlockState().
+				setValue(FlowingFluidBlock.LEVEL,
+				Integer.valueOf(getLegacyLevel(state)));
 	}
 
 	/**
 	 * @return 1. Water value.
 	 */
 	@Override
-	public int getLevelDecreasePerBlock(IWorldReader worldIn) {
+	public int getDropOff(IWorldReader worldIn) {
 		return 1;
 	}
 
@@ -187,19 +188,13 @@ public abstract class Steam extends FlowingFluid {
 			return net.minecraftforge.fluids.FluidAttributes
 					.builder(new ResourceLocation("block/water_still"), new ResourceLocation("block/water_flow"))
 					.overlay(new ResourceLocation("block/water_overlay")).translationKey("block.borkler.steam_source")
-					.color(0xFFD6EBEB).sound(SoundEvents.ITEM_BUCKET_FILL, SoundEvents.ITEM_BUCKET_EMPTY).density(-5)
+					.color(0xFFD6EBEB).sound(SoundEvents.BUCKET_FILL, SoundEvents.BUCKET_EMPTY).density(-5)
 					.temperature(373).gaseous().viscosity(500).build(Index.Fluids.STEAM);
 		}
 
 		@Override
-		protected void fillStateContainer(StateContainer.Builder<Fluid, FluidState> builder) {
-			super.fillStateContainer(builder);
-			builder.add(LEVEL_1_8);
-		}
-
-		@Override
-		public int getLevel(FluidState state) {
-			return state.get(LEVEL_1_8);
+		public int getAmount(FluidState state) {
+			return state.getAmount();
 		}
 
 		@Override
@@ -222,7 +217,7 @@ public abstract class Steam extends FlowingFluid {
 		}
 
 		@Override
-		public int getLevel(FluidState state) {
+		public int getAmount(FluidState state) {
 			return 8;
 		}
 
