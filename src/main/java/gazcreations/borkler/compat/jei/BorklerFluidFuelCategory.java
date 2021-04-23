@@ -97,6 +97,6 @@ class BorklerFluidFuelCategory extends BorklerFuelCategory<BorklerFuel> {
 	@SuppressWarnings("resource")
 	@Override
 	public void draw(BorklerFuel recipe, MatrixStack stack, double mouseX, double mouseY) {
-		Minecraft.getInstance().font.draw(stack, recipe.getBurnTime() + " ticks", 5, 5, 0);
+		Minecraft.getInstance().fontRenderer.drawString(stack, recipe.getBurnTime() + " ticks", 5, 5, 0);
 	}
 }

@@ -1,3 +1,6 @@
 /.gradle/
 /build/
 /run/
+/runClient.launch
+/runData.launch
+/runServer.launch

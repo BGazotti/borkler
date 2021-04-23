@@ -36,7 +36,7 @@ import net.minecraft.item.ItemGroup;
 public class SteamItem extends BlockItem {
 
 	public SteamItem() {
-		super(new SteamBlock(), new Properties().tab(ItemGroup.TAB_MISC));
+		super(new SteamBlock(), new Properties().group(ItemGroup.MISC));
 		this.setRegistryName("borkler", "steam_source");
 	}
 }

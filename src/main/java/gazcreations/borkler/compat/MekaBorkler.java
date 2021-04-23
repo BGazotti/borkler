@@ -19,7 +19,6 @@
 
 package gazcreations.borkler.compat;
 
-import java.util.AbstractSet;
 import java.util.Collections;
 import java.util.Set;
 
@@ -36,8 +35,6 @@ import net.minecraft.util.Direction;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.CapabilityInject;
 import net.minecraftforge.common.util.LazyOptional;
-import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
-import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
 
 /**
@@ -67,9 +64,8 @@ public class MekaBorkler implements IGasHandler {
 		updateGasConnections();
 	}
 
-	@SuppressWarnings("resource")
 	public void updateGasConnections() {
-		if (boiler.getLevel().isClientSide)
+		if (boiler.getWorld().isRemote())
 			return;
 		Set<LazyOptional<IGasHandler>> consumers = new ObjectArraySet<LazyOptional<IGasHandler>>(7) {
 
@@ -81,13 +77,13 @@ public class MekaBorkler implements IGasHandler {
 				return super.add(element);
 			}
 		};
-		gazcreations.borkler.Borkler.LOGGER.debug("Borkler @" + boiler.getLevel() + " ," + boiler.getBlockPos()
+		gazcreations.borkler.Borkler.LOGGER.debug("Borkler @" + boiler.getWorld() + " ," + boiler.getPos()
 				+ " has been politely asked to update its gas connections.");
 		gazcreations.borkler.Borkler.LOGGER.debug("Current connections are: " + gasConsumers.toString());
 		LazyOptional<IGasHandler> cap = null;
 		TileEntity te = null;
 		for (Direction d : Direction.values()) {
-			if ((te = boiler.getLevel().getBlockEntity(boiler.getBlockPos().relative(d))) != null) {
+			if ((te = boiler.getWorld().getTileEntity(boiler.getPos().offset(d))) != null) {
 				cap = te.getCapability(GasHandlerCapability, d.getOpposite());
 				// if (cap.isPresent()) override of Set.add will prevent empty Optionals from
 				// being added
@@ -95,7 +91,7 @@ public class MekaBorkler implements IGasHandler {
 			}
 		}
 		gazcreations.borkler.Borkler.LOGGER.debug(
-				"Borkler @" + boiler.getLevel() + " ," + boiler.getBlockPos() + "has updated its connections: " + consumers.toString());
+				"Borkler @" + boiler.getWorld() + " ," + boiler.getPos() + "has updated its connections: " + consumers.toString());
 		this.gasConsumers = consumers;
 	}
 
@@ -118,7 +114,7 @@ public class MekaBorkler implements IGasHandler {
 		GasStack stack = MekanismGases.STEAM.getStack(drained);
 		if (action.execute() && drained > 0) {
 			boiler.drain((int) drained, FluidAction.EXECUTE);
-			boiler.setChanged();
+			boiler.markDirty();
 		}
 		return stack;
 	}

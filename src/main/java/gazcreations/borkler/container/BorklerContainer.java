@@ -73,42 +73,41 @@ public class BorklerContainer extends Container {
 			BlockPos pos) {
 		super(Index.BORKLER_CONTAINER_TYPE, id);
 		if (pos != null) {
-			this.borklerInventory = ((BorklerTileEntity) playerInv.player.level.getBlockEntity(pos)).getInventory();
+			this.borklerInventory = ((BorklerTileEntity) playerInv.player.world.getTileEntity(pos)).getInventory();
 			gazcreations.borkler.Borkler.LOGGER.debug("Workaround implemented.");
 		} else
 			this.borklerInventory = inventory;
-		borklerInventory.startOpen(playerInv.player);
-		addSlot(new Slot(borklerInventory, 0, 24, 34) {
+		borklerInventory.openInventory(playerInv.player);
+		addSlot(new Slot(borklerInventory, 0, 28, 27) {
 
 			@Override
-			public boolean mayPlace(ItemStack stack) {
-				boolean valid = borklerInventory.canPlaceItem(this.getSlotIndex(), stack);
+			public boolean isItemValid(ItemStack stack) {
+				boolean valid = borklerInventory.isItemValidForSlot(this.getSlotIndex(), stack);
 				return valid;
 			}
 
 			@Override
-			public void set(ItemStack stack) {
-				if (this.mayPlace(stack))
-					super.set(stack);
+			public void putStack(ItemStack stack) {
+				if (this.isItemValid(stack))
+					super.putStack(stack);
 			}
 		});
-		// 137, 106 -> 133, 113: -4, +7
 		// 12,68 is the first player slot
 		// 12,126 is the player's first hotbar slot
-		int leftCol = 8;
+		int leftCol = 12;
 		for (int playerInvRow = 0; playerInvRow < 3; playerInvRow++) {
 			for (int playerInvCol = 0; playerInvCol < 9; playerInvCol++) {
 				addSlot(new Slot(playerInv, playerInvCol + playerInvRow * 9 + 9, leftCol + playerInvCol * 18,
-						158 - (4 - playerInvRow) * 18 - 10));
+						151 - (4 - playerInvRow) * 18 - 10));
 			}
 
 		}
 		for (int hotbarSlot = 0; hotbarSlot < 9; hotbarSlot++) {
-			addSlot(new Slot(playerInv, hotbarSlot, leftCol + hotbarSlot * 18, 134));
+			addSlot(new Slot(playerInv, hotbarSlot, leftCol + hotbarSlot * 18, 127));
 		}
 		if (pos != null) {
 			this.tileEntityPos = pos;
-			this.borklerTE = (BorklerTileEntity) playerInv.player.level.getBlockEntity(tileEntityPos);
+			this.borklerTE = (BorklerTileEntity) playerInv.player.world.getTileEntity(tileEntityPos);
 			if (borklerTE != null) {
 				gazcreations.borkler.Borkler.LOGGER.debug(this.getClass() + ": BorklerTE found");
 				this.tanksWithCapacity = new ArrayList<Pair<FluidStack, Integer>>(4);
@@ -120,37 +119,48 @@ public class BorklerContainer extends Container {
 	}
 
 	@Override
-	public void setItem(int index, ItemStack stack) {
+	public boolean canInteractWith(PlayerEntity playerIn) {
+		return borklerInventory.isUsableByPlayer(playerIn);
+	}
+
+	@Override
+	public void onContainerClosed(PlayerEntity playerIn) {
+		super.onContainerClosed(playerIn);
+		borklerInventory.closeInventory(playerIn);
+	}
+
+	@Override
+	public void putStackInSlot(int index, ItemStack stack) {
 		if (index == 0) { // Borkler Special Slot. Running extra checks.
-			if (!getSlot(0).mayPlace(stack))
+			if (!getSlot(0).isItemValid(stack))
 				return;
 		}
-		super.setItem(index, stack);
+		super.putStackInSlot(index, stack);
 	}
 
 	/**
 	 * Handles shift+click logic.
 	 */
 	@Override
-	public ItemStack quickMoveStack(PlayerEntity playerIn, int index) {
+	public ItemStack transferStackInSlot(PlayerEntity playerIn, int index) {
 		ItemStack itemstack = ItemStack.EMPTY;
-		Slot slot = this.slots.get(index);
-		if (slot != null && slot.hasItem()) {
-			ItemStack itemstack1 = slot.getItem();
+		Slot slot = this.inventorySlots.get(index);
+		if (slot != null && slot.getHasStack()) {
+			ItemStack itemstack1 = slot.getStack();
 			itemstack = itemstack1.copy();
-			if (index < borklerInventory.getContainerSize()) {
-				if (!this.moveItemStackTo(itemstack1, borklerInventory.getContainerSize(), this.slots.size(),
+			if (index < borklerInventory.getSizeInventory()) {
+				if (!this.mergeItemStack(itemstack1, borklerInventory.getSizeInventory(), this.inventorySlots.size(),
 						true)) {
 					return ItemStack.EMPTY;
 				}
-			} else if (!this.moveItemStackTo(itemstack1, 0, borklerInventory.getContainerSize(), false)) {
+			} else if (!this.mergeItemStack(itemstack1, 0, borklerInventory.getSizeInventory(), false)) {
 				return ItemStack.EMPTY;
 			}
 
 			if (itemstack1.isEmpty()) {
-				slot.set(ItemStack.EMPTY);
+				slot.putStack(ItemStack.EMPTY);
 			} else {
-				slot.setChanged();
+				slot.onSlotChanged();
 			}
 		}
 
@@ -175,10 +185,5 @@ public class BorklerContainer extends Container {
 
 	public BorklerTileEntity getTileEntity() {
 		return this.borklerTE;
-	}
-
-	@Override
-	public boolean stillValid(PlayerEntity p_75145_1_) {
-		return this.borklerInventory.stillValid(p_75145_1_);
 	}
 }

@@ -63,9 +63,8 @@ public class JustEnoughBork implements IModPlugin {
 	@Override
 	public void registerRecipes(IRecipeRegistration reg) {
 		// register all liquid fuel types
-
-		reg.addRecipes(Minecraft.getInstance().player.getCommandSenderWorld().getRecipeManager()
-				.getAllRecipesFor(BorklerFuel.TYPE), BorklerFluidFuelCategory.UID);
+		reg.addRecipes(Minecraft.getInstance().world.getRecipeManager().getRecipesForType(BorklerFuel.TYPE),
+				BorklerFluidFuelCategory.UID);
 
 	}
 

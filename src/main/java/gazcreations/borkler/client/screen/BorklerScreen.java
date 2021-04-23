@@ -62,8 +62,6 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 			"textures/gui/boiler_overlay.png");
 	private TankSimulator[] tanks;
 	private BorklerTileEntity ent;
-	private int xSize;
-	private int ySize;
 
 	/**
 	 * A little screen constructor, containing the back-end container and the
@@ -77,11 +75,9 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 		super(screenContainer, inv, titleIn);
 		this.xSize = 184;
 		this.ySize = 151;
-		//corrections lul
-		this.inventoryLabelY -= 8;
-		this.titleLabelY += 8;
 		ent = screenContainer.getTileEntity();
-		initTanks(Minecraft.getInstance().getWindow().getWidth(), Minecraft.getInstance().getWindow().getHeight());
+		initTanks(Minecraft.getInstance().getMainWindow().getWidth(),
+				Minecraft.getInstance().getMainWindow().getHeight());
 		passEvents = false;
 	}
 
@@ -108,10 +104,10 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 	 * Will draw default tooltips for items and for the fluids in the tanks.
 	 */
 	@Override
-	protected void renderTooltip(MatrixStack matrixStack, int x, int y) {
-		if (this.minecraft.player.inventory.getItem(this.minecraft.player.inventory.selected).isEmpty()
-				&& this.hoveredSlot != null && this.hoveredSlot.hasItem()) {
-			this.renderTooltip(matrixStack, this.hoveredSlot.getItem(), x, y);
+	protected void renderHoveredTooltip(MatrixStack matrixStack, int x, int y) {
+		if (this.minecraft.player.inventory.getItemStack().isEmpty() && this.hoveredSlot != null
+				&& this.hoveredSlot.getHasStack()) {
+			this.renderTooltip(matrixStack, this.hoveredSlot.getStack(), x, y);
 		} else {
 			for (int i = 0; i < tanks.length; i++) {
 				TankSimulator tank = tanks[i];
@@ -129,6 +125,13 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 				}
 			}
 		}
+	}
+
+	@Override
+	protected void drawGuiContainerForegroundLayer(MatrixStack matrixStack, int mouseX, int mouseY) {
+		this.font.drawText(matrixStack, this.title, 8.0F, 6.0F, 4210752);
+		this.font.drawText(matrixStack, this.playerInventory.getDisplayName(), 8.0F, (float) (this.ySize - 96 + 2),
+				4210752);
 	}
 
 	/**
@@ -159,7 +162,7 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 		RenderSystem.color4f(tank.fluidColor.getRed() / 255f, tank.fluidColor.getGreen() / 255f,
 				tank.fluidColor.getBlue() / 255f, tank.fluidColor.getAlpha() / 255f);
 		RenderSystem.enableBlend();
-		getMinecraft().getTextureManager().bind(PlayerContainer.BLOCK_ATLAS);
+		getMinecraft().getTextureManager().bindTexture(PlayerContainer.LOCATION_BLOCKS_TEXTURE);
 		/*
 		 * Again, we will subtract two pixels from the tank's X size and dislocate it to
 		 * the right.
@@ -167,7 +170,7 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 		blit(matrixStack, tank.posX + 1, yPos, 0, tank.sizeX - 2, ySize, tank.cachedFluidSprite);
 		RenderSystem.disableBlend();
 		RenderSystem.color4f(1, 1, 1, 1);
-		getMinecraft().getTextureManager().bind(overlayTexture);
+		getMinecraft().getTextureManager().bindTexture(overlayTexture);
 		/*
 		 * This offset tells the texture manager where to look for the tank overlay in
 		 * the gui texture file.
@@ -183,18 +186,16 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 	public void render(MatrixStack matrixStack, int mouseX, int mouseY, float partialTicks) {
 		this.renderBackground(matrixStack);
 		super.render(matrixStack, mouseX, mouseY, partialTicks);
-		//this.font.draw(matrixStack, this.title, 8.0F, 6.0F, 4210752);
-		//this.font.draw(matrixStack, this.inventory.getDisplayName(), 8.0F, (float) (this.ySize - 96 + 2), 4210752);
 		for (int i = 0; i < 3; i++) {
 			drawTank(matrixStack, tanks[i], i == 2);
 		}
-		this.renderTooltip(matrixStack, mouseX, mouseY);
+		this.renderHoveredTooltip(matrixStack, mouseX, mouseY);
 	}
 
 	@Override
-	protected void renderBg(MatrixStack matrixStack, float partialTicks, int x, int y) {
+	protected void drawGuiContainerBackgroundLayer(MatrixStack matrixStack, float partialTicks, int x, int y) {
 		RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-		this.minecraft.getTextureManager().bind(guiTexture);
+		this.minecraft.getTextureManager().bindTexture(guiTexture);
 		blit(matrixStack, (this.width - this.xSize) / 2, (this.height - this.ySize) / 2, 0, 0, 256, 256);
 	}
 
@@ -221,13 +222,14 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 			this.sizeX = 18;
 			this.sizeY = 49;
 			setFluidTexture();
-			BorklerScreen.this.addWidget(this); // this is done so that the tanks can be resized
+			BorklerScreen.this.addListener(this); // this is done so that the tanks can be resized
+			gazcreations.borkler.Borkler.LOGGER.info(getFluid().getDisplayName().getString());
+
 		}
 
 		/**
 		 * Gets whether the mouse is currently over this TankSimulator's area.
 		 */
-		@Override //nice
 		public boolean isMouseOver(double mouseX, double mouseY) {
 			return mouseX >= this.posX && mouseX < this.posX + this.sizeX && mouseY >= this.posY
 					&& mouseY < this.posY + this.sizeY;
@@ -243,7 +245,8 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 				return;
 			}
 			if (cachedFluidSprite == null) {
-				Texture txtr = Minecraft.getInstance().getTextureManager().getTexture(PlayerContainer.BLOCK_ATLAS);
+				Texture txtr = Minecraft.getInstance().getTextureManager()
+						.getTexture(PlayerContainer.LOCATION_BLOCKS_TEXTURE);
 				if (txtr instanceof AtlasTexture) {
 					cachedFluidSprite = ((AtlasTexture) txtr)
 							.getSprite(getFluid().getFluid().getAttributes().getStillTexture());
@@ -273,4 +276,5 @@ public class BorklerScreen extends ContainerScreen<BorklerContainer> implements 
 			return ent.getFluidInTank(index);
 		}
 	}
+
 }
